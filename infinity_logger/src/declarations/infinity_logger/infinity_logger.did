@@ -1,0 +1,9 @@
+type View = 
+ record {
+   messages: vec text;
+   start_index: nat;
+ };
+service : {
+  append: (vec text) -> () oneway;
+  view: (nat, nat) -> (vec View);
+}
