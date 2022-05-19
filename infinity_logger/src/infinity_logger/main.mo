@@ -15,6 +15,7 @@ actor {
     stable var infinityLoggers : List.List<InfinityLogger> = List.nil();
     stable var totalSize : Nat = 0;
     let MAX_LOGGER_SIZE : Nat = 3;
+    // size of messages about a logger, return size
     private func sizeOfLogger (logger : InfinityLogger) : async Nat {
         let stats = await logger.stats();
         var size = 0;
@@ -23,6 +24,7 @@ actor {
         };
         size
     };
+    // get sub array, return new fix array
     private func subArr <T> (arr : [T], start : Nat, end : Nat) : [T] {
         var bufferArr = Buffer.Buffer<T>(end - start);
         var p = start;
@@ -32,11 +34,13 @@ actor {
         };
         bufferArr.toArray()
     };
+    // push infinity logger to list head, return this infinity logger reference
     private func pushLogger () : async InfinityLogger {
         let infinityLogger = await IL.InfinityLogger();
         infinityLoggers := List.push(infinityLogger, infinityLoggers);
         infinityLogger
     };
+    // get infinity logger by index
     private func getLogger (n : Nat) : async InfinityLogger {
         switch (List.get<InfinityLogger>(infinityLoggers, n)) {
             case (?x) x;
@@ -47,6 +51,13 @@ actor {
             };
         }
     };
+    /*
+     * append messages array by order (old to new)
+     * Problem with append: it will probably lead to a dead lock situation 
+     *   when create multiple canisters as initiation. 
+     * To avoid it, append first messages array with a size less then MAX_LOGGER_SIZE, 
+     *   so that only one canister is created as initiation.
+     */
     public func append (msgs : [Text]) : async () {
         var start : Nat = 0;
         var end : Nat = 0;
@@ -66,6 +77,7 @@ actor {
             start := end;
         };
     };
+    // view messages by asc order (from old to new)
     public func view (from : Nat, to : Nat) : async Logger.View<Text> {
         let textBuffer = Buffer.Buffer<Text>(Nat.sub(to + 1, from));
         let totalLoggers = List.size(infinityLoggers);
