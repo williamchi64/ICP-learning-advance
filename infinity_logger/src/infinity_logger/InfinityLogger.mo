@@ -7,30 +7,22 @@ import Option "mo:base/Option";
 
 import Logger "mo:ic-logger/Logger";
 
-shared(msg) actor class InfinityLogger() {
-    // initiater msg (the wallet that create this canister)
-    let OWNER = msg.caller;
-    stable var state: Logger.State<Text> = Logger.new<Text>(0, null);
+shared actor class InfinityLogger() {
+
+    stable var state: Logger.State<Text> = Logger.new(0, null);
+
     let logger = Logger.Logger<Text>(state);
 
-    // Add a set of messages to the log.
-    public shared func append(msgs: [Text]) {
+    public shared func append (msgs: [Text]) : async () {
         logger.append(msgs);
     };
 
-    // Return log stats, where:
-    //   start_index is the first index of log message.
-    //   bucket_sizes is the size of all buckets, from oldest to newest.
-    public query func stats() : async Logger.Stats {
+    public shared query func stats () : async Logger.Stats {
         logger.stats()
     };
 
-    // Return the messages between from and to indice (inclusive).
-    public shared query func view(from: Nat, to: Nat) : async Logger.View<Text> {
+    public shared query func view (from: Nat, to: Nat) : async Logger.View<Text> {
         logger.view(from, to)
     };
 
-    public query func size() : async Nat {
-        logger.stats().bucket_sizes[0]
-    }
 };

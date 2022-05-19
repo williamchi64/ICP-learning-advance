@@ -4,6 +4,6 @@ type View =
    start_index: nat;
  };
 service : {
-  append: (vec text) -> () oneway;
-  view: (nat, nat) -> (vec View);
+  append: (vec text) -> ();
+  view: (nat, nat) -> (View);
 }

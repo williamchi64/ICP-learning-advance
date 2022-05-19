@@ -1,5 +1,7 @@
 type InfinityLogger/2 = InfinityLogger/1;
+type List<T> = ?(T, List<T>);
 actor {
-  stable var infinityLoggers : [InfinityLogger/2];
-  stable var size : Nat
+  stable var infinityLoggers : ?(InfinityLogger/2, List<InfinityLogger/2>);
+  stable var sizeOfTopLogger : Nat;
+  stable var totalSize : Nat
 };
