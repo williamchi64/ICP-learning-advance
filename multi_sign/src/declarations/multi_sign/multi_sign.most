@@ -1,0 +1,5 @@
+type List<T> = ?(T, List<T>);
+type canister_id/1 = canister_id;
+actor {
+  stable var canister_ids : ?(canister_id/1, List<canister_id/1>)
+};

@@ -14,7 +14,7 @@ actor {
     stable var sizeOfTopLogger : Nat = 0;
     stable var infinityLoggers : List.List<InfinityLogger> = List.nil();
     stable var totalSize : Nat = 0;
-    let MAX_LOGGER_SIZE : Nat = 3;
+    let MAX_LOGGER_SIZE : Nat = 100;
     // size of messages about a logger, return size
     private func sizeOfLogger (logger : InfinityLogger) : async Nat {
         let stats = await logger.stats();
