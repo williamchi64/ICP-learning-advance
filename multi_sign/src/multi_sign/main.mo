@@ -41,8 +41,8 @@ actor class () = self {
     private func remove_cid (n : Nat) {
         canister_ids := F.remove(n, canister_ids);
     };
-    // envoke function<Principal -> ()>, return bool determining success
-    private func envoke (
+    // invoke function<Principal -> ()>, return bool determining success
+    private func invoke (
         function : shared T.CanisterIdParam -> async (),
         n : Nat
     ) : async Bool {
@@ -54,6 +54,10 @@ actor class () = self {
         };
         true
     };
+    /* 
+     * check if a proposal type is in the waiting process list, and consume(delete) the proposal type, 
+     *   return true if existing
+     */
     private func check_waiting_process (n : ?Nat, check_proposal_type : T.ProposalType) : Bool {
         let canister_id = switch (n) {
             case (?n) get_cid(n);
@@ -101,6 +105,13 @@ actor class () = self {
     public query func get_waiting_processes () : async [(T.CanisterId, T.ProposalTypes)] {
         Iter.toArray(waiting_processes.entries())
     };
+    /* 
+     * post a proposal with affected canister number, proposal type, voter threshold(num of total voter)
+     *   and agree proportion. 
+     * If affected canister number is null, only #create process is allowed.
+     * Otherwise, only #create process is not allowed.
+     * For each canister(or null), only a proposal is allowed at the same time.
+     */
     public func post_proposal (
         n : ?Nat, 
         proposal_type : T.ProposalType, 
@@ -139,6 +150,9 @@ actor class () = self {
         proposals.put(canister_id, proposal);
         true
     };
+    /* 
+     * vote a proposal with cnaister number and agree(or not)
+     */
     public shared (msg) func vote_proposal (n : ?Nat, agree : Bool) : async Bool {
         let canister_id = switch (n) {
             case (?x) get_cid(x);
@@ -175,6 +189,7 @@ actor class () = self {
         };
         true
     };
+    // five types of canister process in total. Each invocation will consume a resolution.
     // create_canister
     public func create_canister () : async Bool {
         if (not check_waiting_process(null, #create))
@@ -218,23 +233,24 @@ actor class () = self {
     public func start_canister (n : Nat) : async Bool {
         if (not check_waiting_process(?n, #start))
             return false;
-        await envoke(ic.start_canister, n)
+        await invoke(ic.start_canister, n)
     };
     // stop_canister
     public func stop_canister (n : Nat) : async Bool {
         if (not check_waiting_process(?n, #stop))
             return false;
-        await envoke(ic.stop_canister, n)
+        await invoke(ic.stop_canister, n)
     };
     // delete_canister
     public func delete_canister (n : Nat) : async Bool {
         if (not check_waiting_process(?n, #delete))
             return false;
-        let flag = await envoke(ic.delete_canister, n);
+        let flag = await invoke(ic.delete_canister, n);
         if (flag) remove_cid(n);
         flag
     };
-    /* show canister status. A field - idle_cycles_burned_per_second : Float is ignored, 
+    /* 
+     * show canister status. A field - idle_cycles_burned_per_second : Float is ignored, 
      *   probably caused by the different environment with the main net
      */
     public func canister_status (n : Nat) : async T.CanisterStatus {
