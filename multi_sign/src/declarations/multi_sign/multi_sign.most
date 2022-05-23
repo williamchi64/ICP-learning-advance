@@ -1,5 +1,16 @@
+type CanisterId = canister_id;
 type List<T> = ?(T, List<T>);
-type canister_id/1 = canister_id;
+type Proposal =
+  {
+    agree_proportion : Float;
+    proposal_type : ProposalType;
+    var voter_agree : List<Principal>;
+    voter_threshold : Nat;
+    var voter_total : List<Principal>
+  };
+type ProposalTypes = List<ProposalType>;
 actor {
-  stable var canister_ids : ?(canister_id/1, List<canister_id/1>)
+  stable var canister_ids : ?(CanisterId, List<CanisterId>);
+  stable var proposal_entries : [(CanisterId, Proposal)];
+  stable var waiting_processes_entries : [(CanisterId, ProposalTypes)]
 };

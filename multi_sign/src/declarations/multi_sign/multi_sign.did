@@ -1,9 +1,3 @@
-type install_mode = 
- variant {
-   install;
-   reinstall;
-   upgrade;
- };
 type definite_canister_settings = 
  record {
    compute_allocation: nat;
@@ -11,7 +5,65 @@ type definite_canister_settings =
    freezing_threshold: nat;
    memory_allocation: nat;
  };
-type canister_status = 
+type anon_class_15_1 = 
+ service {
+   canister_status: (nat) -> (CanisterStatus);
+   create_canister: () -> (bool);
+   delete_canister: (nat) -> (bool);
+   get_canisters: () -> (List_1) query;
+   get_proposals: () -> (vec record {
+                               CanisterId;
+                               ProposalOutput;
+                             }) query;
+   get_waiting_processes: () ->
+    (vec record {
+           CanisterId;
+           ProposalTypes;
+         }) query;
+   install_code: (nat, blob, InstallMode) -> (bool);
+   post_proposal: (opt nat, ProposalType, opt nat, opt float64) -> (bool);
+   start_canister: (nat) -> (bool);
+   stop_canister: (nat) -> (bool);
+   vote_proposal: (opt nat, bool) -> (bool);
+ };
+type ProposalTypes = 
+ opt record {
+       ProposalType;
+       List;
+     };
+type ProposalType = 
+ variant {
+   create;
+   delete;
+   install;
+   start;
+   stop;
+ };
+type ProposalOutput = 
+ record {
+   agree_proportion: float64;
+   proposal_type: ProposalType;
+   total_voter_agree: nat;
+   total_voter_total: nat;
+   voter_threshold: nat;
+ };
+type List_1 = 
+ opt record {
+       CanisterId;
+       List_1;
+     };
+type List = 
+ opt record {
+       ProposalType;
+       List;
+     };
+type InstallMode = 
+ variant {
+   install;
+   reinstall;
+   upgrade;
+ };
+type CanisterStatus = 
  record {
    cycles: nat;
    freezing_threshold: nat;
@@ -24,20 +76,5 @@ type canister_status =
              stopping;
            };
  };
-type canister_id = principal;
-type anon_class_10_1 = 
- service {
-   canister_status: (nat) -> (canister_status);
-   create_canister: () -> (canister_id);
-   delete_canister: (nat) -> (bool);
-   get_canisters: () -> (List) query;
-   install_code: (nat, blob, install_mode) -> (bool);
-   start_canister: (nat) -> (bool);
-   stop_canister: (nat) -> (bool);
- };
-type List = 
- opt record {
-       canister_id;
-       List;
-     };
-service : () -> anon_class_10_1
+type CanisterId = principal;
+service : () -> anon_class_15_1
