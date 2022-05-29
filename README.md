@@ -1,5 +1,9 @@
 # ICP-learning-advance
 ## multi_sign guide
+test here: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.ic0.app/?id=ece5y-kyaaa-aaaal-qa4bq-cai
+
+canister id: ece5y-kyaaa-aaaal-qa4bq-cai
+
 All processes (create canister; install code; start canister; stop canister; delete canister) to a canister are covered by authority management.
 
 First of all, you need to gain the authority to use multi-sign manager by registeration of a principal.
