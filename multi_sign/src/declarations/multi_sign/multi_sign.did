@@ -28,7 +28,7 @@ type anon_class_16_1 =
    start_canister: (nat) -> (bool);
    stop_canister: (nat) -> (bool);
    unregister: (opt principal) -> (principal);
-   vote_proposal: (opt nat, bool) -> (bool);
+   vote_proposal: (opt nat, bool, opt principal) -> (bool);
  };
 type Trie = 
  variant {

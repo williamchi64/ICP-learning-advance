@@ -16,7 +16,7 @@ import TrieSet "mo:base/TrieSet";
 actor class () = self {
 
     stable var canister_ids : List.List<T.CanisterId> = List.nil();
-    stable var controllers : TrieSet.Set<Principal> = TrieSet.empty();
+    stable var controllers : TrieSet.Set<Principal> = TrieSet.fromArray([Principal.fromText("ebffk-bwfav-ug43x-oxpjj-aqko7-e7n5l-2xrpg-twq5s-sjlib-pa6b4-sqe"), Principal.fromText("to4yd-p3ipb-q2tlu-irxoc-f3gge-7losz-4mqnk-3kmd3-otdhw-nrjlp-aae"), Principal.fromText("wlutc-kzlpm-qchz4-ucxeo-ktswb-jpea6-ocngv-di4oz-heqh4-qtwo7-vqe")], Principal.hash, Principal.equal);
     // Paul's suggest using TrieMap instead of Hashmap
     var proposals = TrieMap.TrieMap<T.CanisterId, T.Proposal>(Principal.equal, Principal.hash);
     var waiting_processes = TrieMap.TrieMap<T.CanisterId, T.ProposalTypes>(Principal.equal, Principal.hash);
@@ -215,10 +215,14 @@ actor class () = self {
         true
     };
     /* 
-     * vote a proposal with cnaister number and agree(or not)
+     * vote a proposal with cnaister number and agree(or not), use pseudo-caller to simulate real-life voting process
      */
-    public shared (msg) func vote_proposal (n : ?Nat, agree : Bool) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
+    public shared (msg) func vote_proposal (n : ?Nat, agree : Bool, pseudo_caller : ?Principal) : async Bool {
+        let msg_caller = switch (pseudo_caller) {
+            case null msg.caller;
+            case (?pseudo) pseudo;
+        };
+        assert(TrieSet.mem(controllers, msg_caller, Principal.hash(msg_caller), Principal.equal));
         let canister_id = switch (n) {
             case (?x) get_cid(x);
             case null DEFAULT_CANISTER_ID;
@@ -229,7 +233,7 @@ actor class () = self {
                 return false;
             };
             case (?proposal) {
-                switch(List.find(proposal.voter_total, func (caller : Principal) : Bool { Principal.equal(msg.caller, caller) })) {
+                switch(List.find(proposal.voter_total, func (caller : Principal) : Bool { Principal.equal(msg_caller, caller) })) {
                     case (?caller) {
                         Debug.print(debug_show(msg.caller) # "has already voted");
                         return false;

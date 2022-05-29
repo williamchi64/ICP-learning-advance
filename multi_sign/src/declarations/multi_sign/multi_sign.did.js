@@ -100,7 +100,11 @@ export const idlFactory = ({ IDL }) => {
     'start_canister' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'stop_canister' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'unregister' : IDL.Func([IDL.Opt(IDL.Principal)], [IDL.Principal], []),
-    'vote_proposal' : IDL.Func([IDL.Opt(IDL.Nat), IDL.Bool], [IDL.Bool], []),
+    'vote_proposal' : IDL.Func(
+        [IDL.Opt(IDL.Nat), IDL.Bool, IDL.Opt(IDL.Principal)],
+        [IDL.Bool],
+        [],
+      ),
   });
   return anon_class_16_1;
 };

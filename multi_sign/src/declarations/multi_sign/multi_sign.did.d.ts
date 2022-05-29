@@ -67,7 +67,11 @@ export interface anon_class_16_1 {
   'start_canister' : (arg_0: bigint) => Promise<boolean>,
   'stop_canister' : (arg_0: bigint) => Promise<boolean>,
   'unregister' : (arg_0: [] | [Principal]) => Promise<Principal>,
-  'vote_proposal' : (arg_0: [] | [bigint], arg_1: boolean) => Promise<boolean>,
+  'vote_proposal' : (
+      arg_0: [] | [bigint],
+      arg_1: boolean,
+      arg_2: [] | [Principal],
+    ) => Promise<boolean>,
 }
 export interface definite_canister_settings {
   'freezing_threshold' : bigint,
