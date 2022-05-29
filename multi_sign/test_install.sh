@@ -1,4 +1,5 @@
-import multi_sign = "rrkah-fqaaa-aaaaa-aaaaq-cai";
+# test install code of the canister on ic mainnet
+import multi_sign = "ece5y-kyaaa-aaaal-qa4bq-cai";
 let test_file = file "greet.wasm";
-let result = call multi_sign.install_code (0, test_file, variant { install });
-result;
+call multi_sign.register(null);
+call multi_sign.install_code (0, test_file, variant { install });

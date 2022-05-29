@@ -7,9 +7,6 @@ import T "type";
 
 module {
 
-    let DEFAULT_VOTER_THRESHOLD = 10;
-    let DEFAULT_AGREE_PROPORTION = 0.5;
-
     public func get<A> (n : Nat, list : List.List<A>, default : A) : A {
         switch (List.get(list, n)) {
             case (?x) x;
@@ -21,7 +18,7 @@ module {
     public func remove<A> (n : Nat, list : List.List<A>) : List.List<A> {
         let head_part = List.take(list, n);
         let tail_part = List.drop(list, n + 1);
-        List.append(head_part, tail_part);
+        List.append(head_part, tail_part)
     };
     public func vote (
         proposal : T.Proposal, 
@@ -41,14 +38,16 @@ module {
     public func construct_proposal (
         proposal_type : T.ProposalType, 
         voter_threshold : ?Nat, 
-        agree_proportion : ?Float
+        agree_proportion : ?Float,
+        default_voter_threshold : Nat,
+        default_agree_proportion : Float
     ) : T.Proposal {
         {
             proposal_type = proposal_type;
             voter_threshold = switch (voter_threshold) {
-                case (?x) x; case null DEFAULT_VOTER_THRESHOLD};
+                case (?x) x; case null default_voter_threshold};
             agree_proportion = switch (agree_proportion) {
-                case (?x) x; case null DEFAULT_AGREE_PROPORTION};
+                case (?x) x; case null default_agree_proportion};
             var voter_agree = List.nil<Principal>();
             var voter_total = List.nil<Principal>();
         }
@@ -58,8 +57,10 @@ module {
             proposal_type = proposal.proposal_type;
             voter_threshold = proposal.voter_threshold;
             agree_proportion = proposal.agree_proportion;
+            voter_agree = proposal.voter_agree;
+            voter_total = proposal.voter_total;
             total_voter_agree = List.size(proposal.voter_agree);
-            total_voter_total = List.size(proposal.voter_total);
+            total_voter_num = List.size(proposal.voter_total);
         }
     };
 }

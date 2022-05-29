@@ -1,22 +1,25 @@
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
+import Cycles "mo:base/ExperimentalCycles";
 import Debug "mo:base/Debug";
 import Error "mo:base/Error";
-import Principal "mo:base/Principal";
-import List "mo:base/List";
-import HashMap "mo:base/HashMap";
-import Float "mo:base/Float";
-import Text "mo:base/Text";
-import Iter "mo:base/Iter";
-
-import T "type";
 import F "func";
+import Float "mo:base/Float";
+import Iter "mo:base/Iter";
+import List "mo:base/List";
+import Principal "mo:base/Principal";
+import T "type";
+import Text "mo:base/Text";
+import TrieMap "mo:base/TrieMap";
+import TrieSet "mo:base/TrieSet";
 
 actor class () = self {
 
     stable var canister_ids : List.List<T.CanisterId> = List.nil();
-    var proposals = HashMap.HashMap<T.CanisterId, T.Proposal>(10, Principal.equal, Principal.hash);
-    var waiting_processes = HashMap.HashMap<T.CanisterId, T.ProposalTypes>(10, Principal.equal, Principal.hash);
+    stable var controllers : TrieSet.Set<Principal> = TrieSet.empty();
+    // Paul's suggest using TrieMap instead of Hashmap
+    var proposals = TrieMap.TrieMap<T.CanisterId, T.Proposal>(Principal.equal, Principal.hash);
+    var waiting_processes = TrieMap.TrieMap<T.CanisterId, T.ProposalTypes>(Principal.equal, Principal.hash);
 
     // for upgrade data transfer
     stable var proposal_entries : [(T.CanisterId, T.Proposal)] = [];
@@ -26,14 +29,16 @@ actor class () = self {
         waiting_processes_entries := Iter.toArray(waiting_processes.entries());
     };
     system func postupgrade() {
-        proposals := HashMap.fromIter<Principal, T.Proposal>(proposal_entries.vals(), 10, Principal.equal, Principal.hash);
-        waiting_processes := HashMap.fromIter<Principal, T.ProposalTypes>(waiting_processes_entries.vals(), 10, Principal.equal, Principal.hash);
+        proposals := TrieMap.fromEntries<T.CanisterId, T.Proposal>(proposal_entries.vals(), Principal.equal, Principal.hash);
+        waiting_processes := TrieMap.fromEntries<T.CanisterId, T.ProposalTypes>(waiting_processes_entries.vals(), Principal.equal, Principal.hash);
         proposal_entries := [];
         waiting_processes_entries := [];
     };
 
     let ic : T.IC = actor("aaaaa-aa");
     let DEFAULT_CANISTER_ID : T.CanisterId = Principal.fromActor(ic);
+    let DEFAULT_CREATE_CANISTER_CYCLES = 100_000_000_000;
+    let DEFAULT_AGREE_PROPORTION = 1.0;
 
     private func get_cid (n : Nat) : T.CanisterId {
         F.get<T.CanisterId>(n, canister_ids, DEFAULT_CANISTER_ID)
@@ -44,12 +49,16 @@ actor class () = self {
     // invoke function<Principal -> ()>, return bool determining success
     private func invoke (
         function : shared T.CanisterIdParam -> async (),
-        n : Nat
+        n : Nat,
+        proposal_type : T.ProposalType
     ) : async Bool {
+        if (not check_waiting_process(?n, proposal_type))
+            return false;
         try {
             await function({canister_id = get_cid(n)});
         } catch (e) {
             Debug.print("Caught error: " # Error.message(e));
+            refund_waiting_process(?n, proposal_type);
             return false;
         };
         true
@@ -94,16 +103,70 @@ actor class () = self {
         Debug.print("Consume a resolution");
         true
     };
+    // only used in try catch when the process catch an error
+    private func refund_waiting_process(n : ?Nat, refund_proposal_type : T.ProposalType) {
+        let canister_id = switch (n) {
+            case (?n) get_cid(n);
+            case null DEFAULT_CANISTER_ID;
+        };
+        switch (waiting_processes.get(canister_id)) {
+            case null {};
+            case (?waiting_process) {
+                var mut_waiting_process = waiting_process;
+                mut_waiting_process := List.push(refund_proposal_type, mut_waiting_process);
+                waiting_processes.put(canister_id, mut_waiting_process);
+            };
+        };
+    };
+    private func remove_wp(n : ?Nat) {
+        let canister_id = switch (n) {
+            case (?n) get_cid(n);
+            case null DEFAULT_CANISTER_ID;
+        };
+        waiting_processes.delete(canister_id);
+    };
     public query func get_canisters () : async List.List<T.CanisterId> {
         canister_ids
     };
+    public query func get_controllers () : async TrieSet.Set<Principal> {
+        controllers
+    };
     public query func get_proposals () : async [(T.CanisterId, T.ProposalOutput)] {
         // Array.map<(T.CanisterId, T.Proposal),(T.CanisterId, T.ProposalOutput)>(Iter.toArray(proposals.entries()), F.map_proposal)
-        let hm = HashMap.map<T.CanisterId, T.Proposal, T.ProposalOutput>(proposals, Principal.equal, Principal.hash, F.map_proposal);
+        let hm = TrieMap.map<T.CanisterId, T.Proposal, T.ProposalOutput>(proposals, Principal.equal, Principal.hash, F.map_proposal);
         Iter.toArray(hm.entries())
     };
     public query func get_waiting_processes () : async [(T.CanisterId, T.ProposalTypes)] {
         Iter.toArray(waiting_processes.entries())
+    };
+    public query func get_cycles () : async Nat {
+        Cycles.balance()
+    };
+    // register self or other as a controller
+    public shared (msg) func register(registerer : ?Principal) : async Principal {
+        let add_controller = switch (registerer) {
+            case null msg.caller;
+            case (?controller) controller;
+        };
+        if (TrieSet.mem(controllers, add_controller, Principal.hash(add_controller), Principal.equal)) {
+            Debug.print(debug_show(add_controller) # " has already registered");
+            return DEFAULT_CANISTER_ID;
+        };
+        controllers := TrieSet.put(controllers, add_controller, Principal.hash(add_controller), Principal.equal);
+        add_controller
+    };
+    // unregister self or other as a controller
+    public shared (msg) func unregister(unregisterer : ?Principal) : async Principal {
+        let delete_controller = switch (unregisterer) {
+            case null msg.caller;
+            case (?controller) controller;
+        };
+        if (not TrieSet.mem(controllers, delete_controller, Principal.hash(delete_controller), Principal.equal)) {
+            Debug.print(debug_show(delete_controller) # " has already unregistered or never registered");
+            return DEFAULT_CANISTER_ID;
+        };
+        controllers := TrieSet.delete(controllers, delete_controller, Principal.hash(delete_controller), Principal.equal);
+        delete_controller
     };
     /* 
      * post a proposal with affected canister number, proposal type, voter threshold(num of total voter)
@@ -112,12 +175,13 @@ actor class () = self {
      * Otherwise, only #create process is not allowed.
      * For each canister(or null), only a proposal is allowed at the same time.
      */
-    public func post_proposal (
+    public shared (msg) func post_proposal (
         n : ?Nat, 
         proposal_type : T.ProposalType, 
         voter_threshold : ?Nat, 
         agree_proportion : ?Float
     ) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
         let canister_id = switch (n) {
             case (?n) {
                 let canister_id = get_cid(n);
@@ -146,7 +210,7 @@ actor class () = self {
             };
             case null (); 
         };
-        let proposal = F.construct_proposal(proposal_type, voter_threshold, agree_proportion);
+        let proposal = F.construct_proposal(proposal_type, voter_threshold, agree_proportion, TrieSet.size(controllers), DEFAULT_AGREE_PROPORTION);
         proposals.put(canister_id, proposal);
         true
     };
@@ -154,6 +218,7 @@ actor class () = self {
      * vote a proposal with cnaister number and agree(or not)
      */
     public shared (msg) func vote_proposal (n : ?Nat, agree : Bool) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
         let canister_id = switch (n) {
             case (?x) get_cid(x);
             case null DEFAULT_CANISTER_ID;
@@ -164,6 +229,13 @@ actor class () = self {
                 return false;
             };
             case (?proposal) {
+                switch(List.find(proposal.voter_total, func (caller : Principal) : Bool { Principal.equal(msg.caller, caller) })) {
+                    case (?caller) {
+                        Debug.print(debug_show(msg.caller) # "has already voted");
+                        return false;
+                    };
+                    case null {};
+                };
                 switch (F.vote(proposal, agree, msg.caller)) {
                     case (#voting) {
                         Debug.print("The canister process of " # debug_show(proposal.proposal_type) # " is voting");
@@ -191,7 +263,18 @@ actor class () = self {
     };
     // five types of canister process in total. Each invocation will consume a resolution.
     // create_canister
-    public func create_canister () : async Bool {
+    public shared (msg) func create_canister (cycles : ?Nat) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
+        let amount = switch (cycles) {
+            case (?amount) {
+                if (amount > Cycles.balance()) {
+                    Debug.print("Amount cycles over balance. Please input with the amount less than " # debug_show(Cycles.balance()));
+                    return false;
+                };
+                amount
+            };
+            case null DEFAULT_CREATE_CANISTER_CYCLES;
+        };
         if (not check_waiting_process(null, #create))
             return false;
         let canister_settings = {
@@ -203,16 +286,23 @@ actor class () = self {
             };
         };
         try {
+            Cycles.add(amount);
             let result = await ic.create_canister(canister_settings);
+            let refund = Cycles.refunded();
+            Debug.print("Refund " # debug_show(refund));
+            Debug.print("Current balance " # debug_show(Cycles.balance()));
             canister_ids := List.push(result.canister_id, canister_ids);
         } catch (e) {
             Debug.print("Caught error: " # Error.message(e));
+            refund_waiting_process(null, #create);
             return false;
         };
+        remove_wp(null);
         true
     };
     // install_code
-    public func install_code (n : Nat, code : Blob, mode : T.InstallMode) : async Bool {
+    public shared (msg) func install_code (n : Nat, code : Blob, mode : T.InstallMode) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
         if (not check_waiting_process(?n, #install))
             return false;
         let code_settings = {
@@ -225,28 +315,29 @@ actor class () = self {
             await ic.install_code(code_settings);
         } catch (e) {
             Debug.print("Caught error: " # Error.message(e));
+            refund_waiting_process(?n, #install);
             return false;
         };
         true
     };
     // start_canister
-    public func start_canister (n : Nat) : async Bool {
-        if (not check_waiting_process(?n, #start))
-            return false;
-        await invoke(ic.start_canister, n)
+    public shared (msg) func start_canister (n : Nat) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
+        await invoke(ic.start_canister, n, #start)
     };
     // stop_canister
-    public func stop_canister (n : Nat) : async Bool {
-        if (not check_waiting_process(?n, #stop))
-            return false;
-        await invoke(ic.stop_canister, n)
+    public shared (msg) func stop_canister (n : Nat) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
+        await invoke(ic.stop_canister, n, #stop)
     };
     // delete_canister
-    public func delete_canister (n : Nat) : async Bool {
-        if (not check_waiting_process(?n, #delete))
-            return false;
-        let flag = await invoke(ic.delete_canister, n);
-        if (flag) remove_cid(n);
+    public shared (msg) func delete_canister (n : Nat) : async Bool {
+        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
+        let flag = await invoke(ic.delete_canister, n, #delete);
+        if (flag) {
+            remove_wp(?n);
+            remove_cid(n);
+        };
         flag
     };
     /* 

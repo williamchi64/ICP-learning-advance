@@ -29,8 +29,10 @@ module {
         proposal_type : ProposalType;
         voter_threshold : Nat;
         agree_proportion : Float;
+        voter_agree : List.List<Principal>;
+        voter_total : List.List<Principal>;
         total_voter_agree : Nat;
-        total_voter_total : Nat;
+        total_voter_num : Nat;
     };
     public type ProposalStatus = { #voting; #pass; #fail };
 }

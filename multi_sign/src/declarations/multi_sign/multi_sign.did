@@ -5,12 +5,14 @@ type definite_canister_settings =
    freezing_threshold: nat;
    memory_allocation: nat;
  };
-type anon_class_15_1 = 
+type anon_class_16_1 = 
  service {
    canister_status: (nat) -> (CanisterStatus);
-   create_canister: () -> (bool);
+   create_canister: (opt nat) -> (bool);
    delete_canister: (nat) -> (bool);
-   get_canisters: () -> (List_1) query;
+   get_canisters: () -> (List_3) query;
+   get_controllers: () -> (Set) query;
+   get_cycles: () -> (nat) query;
    get_proposals: () -> (vec record {
                                CanisterId;
                                ProposalOutput;
@@ -22,9 +24,23 @@ type anon_class_15_1 =
          }) query;
    install_code: (nat, blob, InstallMode) -> (bool);
    post_proposal: (opt nat, ProposalType, opt nat, opt float64) -> (bool);
+   register: (opt principal) -> (principal);
    start_canister: (nat) -> (bool);
    stop_canister: (nat) -> (bool);
+   unregister: (opt principal) -> (principal);
    vote_proposal: (opt nat, bool) -> (bool);
+ };
+type Trie = 
+ variant {
+   branch: Branch;
+   "empty";
+   leaf: Leaf;
+ };
+type Set = 
+ variant {
+   branch: Branch;
+   "empty";
+   leaf: Leaf;
  };
 type ProposalTypes = 
  opt record {
@@ -44,12 +60,27 @@ type ProposalOutput =
    agree_proportion: float64;
    proposal_type: ProposalType;
    total_voter_agree: nat;
-   total_voter_total: nat;
+   total_voter_num: nat;
+   voter_agree: List_1;
    voter_threshold: nat;
+   voter_total: List_1;
  };
-type List_1 = 
+type List_3 = 
  opt record {
        CanisterId;
+       List_3;
+     };
+type List_2 = 
+ opt record {
+       record {
+         Key;
+         null;
+       };
+       List_2;
+     };
+type List_1 = 
+ opt record {
+       principal;
        List_1;
      };
 type List = 
@@ -57,12 +88,23 @@ type List =
        ProposalType;
        List;
      };
+type Leaf = 
+ record {
+   keyvals: AssocList;
+   size: nat;
+ };
+type Key = 
+ record {
+   hash: Hash;
+   key: principal;
+ };
 type InstallMode = 
  variant {
    install;
    reinstall;
    upgrade;
  };
+type Hash = nat32;
 type CanisterStatus = 
  record {
    cycles: nat;
@@ -77,4 +119,18 @@ type CanisterStatus =
            };
  };
 type CanisterId = principal;
-service : () -> anon_class_15_1
+type Branch = 
+ record {
+   left: Trie;
+   right: Trie;
+   size: nat;
+ };
+type AssocList = 
+ opt record {
+       record {
+         Key;
+         null;
+       };
+       List_2;
+     };
+service : () -> anon_class_16_1

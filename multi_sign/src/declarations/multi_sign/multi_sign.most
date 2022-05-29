@@ -1,4 +1,6 @@
+type Branch<K, V> = {left : Trie<K, V>; right : Trie<K, V>; size : Nat};
 type CanisterId = canister_id;
+type Leaf<K, V> = {keyvals : AssocList/1<Key<K>, V>; size : Nat};
 type List<T> = ?(T, List<T>);
 type Proposal =
   {
@@ -11,6 +13,8 @@ type Proposal =
 type ProposalTypes = List<ProposalType>;
 actor {
   stable var canister_ids : ?(CanisterId, List<CanisterId>);
+  stable var controllers :
+    {#branch : Branch<Principal, ()>; #empty; #leaf : Leaf<Principal, ()>};
   stable var proposal_entries : [(CanisterId, Proposal)];
   stable var waiting_processes_entries : [(CanisterId, ProposalTypes)]
 };
