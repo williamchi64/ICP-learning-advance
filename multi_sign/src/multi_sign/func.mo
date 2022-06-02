@@ -1,9 +1,12 @@
+import ArrayList "ArrayList";
 import Debug "mo:base/Debug";
+import Deque "mo:base/Deque";
 import Error "mo:base/Error";
 import Float "mo:base/Float";
+import Iter "mo:base/Iter";
 import List "mo:base/List";
-
 import T "type";
+import TrieMap "mo:base/TrieMap";
 
 module {
 
@@ -63,4 +66,23 @@ module {
             total_voter_num = List.size(proposal.voter_total);
         }
     };
+    public func map_canister_update (canister : T.Canister) : T.CanisterOuputUpdate {
+        {
+            id = canister.id;
+            lock = switch (canister.lock) { 
+                case (#unlock) #unlock;
+                case (#lock(x)) {#lock(
+                        {
+                            install = x.install;
+                            start = x.start;
+                            stop = x.stop;
+                            delete = x.delete;
+                        }
+                    )
+                };
+            };
+            proposals = Deque.empty<T.ProposalOutputUpdate>();
+        }
+    };
+    
 }

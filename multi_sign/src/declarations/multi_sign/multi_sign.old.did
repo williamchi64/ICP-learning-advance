@@ -5,32 +5,6 @@ type definite_canister_settings =
    freezing_threshold: nat;
    memory_allocation: nat;
  };
-type anon_class_20_1 = 
- service {
-   canister_status: (nat) -> (CanisterStatus);
-   create_canister: (opt nat) -> (bool);
-   delete_canister: (nat) -> (bool);
-   get_canisters: () -> (List_4) query;
-   get_canisters_update: () -> (ArrayList) query;
-   get_controllers: () -> (Set) query;
-   get_cycles: () -> (nat) query;
-   get_proposals: () -> (vec record {
-                               CanisterId;
-                               ProposalOutput;
-                             }) query;
-   get_waiting_processes: () ->
-    (vec record {
-           CanisterId;
-           ProposalTypes;
-         }) query;
-   install_code: (nat, blob, InstallMode) -> (bool);
-   post_proposal: (opt nat, ProposalType, opt nat, opt float64) -> (bool);
-   register: (opt principal) -> (principal);
-   start_canister: (nat) -> (bool);
-   stop_canister: (nat) -> (bool);
-   unregister: (opt principal) -> (principal);
-   vote_proposal: (opt nat, bool, opt principal) -> (bool);
- };
 type Trie = 
  variant {
    branch: Branch;
@@ -198,4 +172,27 @@ type ArrayList =
    default: CanisterOuputUpdate;
    size: nat;
  };
-service : () -> anon_class_20_1
+service : {
+  canister_status: (nat) -> (CanisterStatus);
+  create_canister: (opt nat) -> (bool);
+  delete_canister: (nat) -> (bool);
+  get_canisters: () -> (List_4) query;
+  get_canisters_update: () -> (ArrayList) query;
+  get_controllers: () -> (Set) query;
+  get_cycles: () -> (nat) query;
+  get_proposals: () -> (vec record {
+                              CanisterId;
+                              ProposalOutput;
+                            }) query;
+  get_waiting_processes: () -> (vec record {
+                                      CanisterId;
+                                      ProposalTypes;
+                                    }) query;
+  install_code: (nat, blob, InstallMode) -> (bool);
+  post_proposal: (opt nat, ProposalType, opt nat, opt float64) -> (bool);
+  register: (opt principal) -> (principal);
+  start_canister: (nat) -> (bool);
+  stop_canister: (nat) -> (bool);
+  unregister: (opt principal) -> (principal);
+  vote_proposal: (opt nat, bool, opt principal) -> (bool);
+}
