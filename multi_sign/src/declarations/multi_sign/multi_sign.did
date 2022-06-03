@@ -11,7 +11,7 @@ type anon_class_20_1 =
    create_canister: (opt nat) -> (bool);
    delete_canister: (nat) -> (bool);
    get_canisters: () -> (List_4) query;
-   get_canisters_update: () -> (ArrayList) query;
+   get_canisters_update: () -> (vec CanisterOuputUpdate) query;
    get_controllers: () -> (Set) query;
    get_cycles: () -> (nat) query;
    get_proposals: () -> (vec record {
@@ -192,10 +192,4 @@ type AssocList =
        };
        List_2;
      };
-type ArrayList = 
- record {
-   arr: vec CanisterOuputUpdate;
-   default: CanisterOuputUpdate;
-   size: nat;
- };
 service : () -> anon_class_20_1

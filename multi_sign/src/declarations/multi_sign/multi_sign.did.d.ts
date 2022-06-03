@@ -1,9 +1,4 @@
 import type { Principal } from '@dfinity/principal';
-export interface ArrayList {
-  'arr' : Array<CanisterOuputUpdate>,
-  'size' : bigint,
-  'default' : CanisterOuputUpdate,
-}
 export type AssocList = [] | [[[Key, null], List_2]];
 export interface Branch { 'left' : Trie, 'size' : bigint, 'right' : Trie }
 export type CanisterId = Principal;
@@ -89,7 +84,7 @@ export interface anon_class_20_1 {
   'create_canister' : (arg_0: [] | [bigint]) => Promise<boolean>,
   'delete_canister' : (arg_0: bigint) => Promise<boolean>,
   'get_canisters' : () => Promise<List_4>,
-  'get_canisters_update' : () => Promise<ArrayList>,
+  'get_canisters_update' : () => Promise<Array<CanisterOuputUpdate>>,
   'get_controllers' : () => Promise<Set>,
   'get_cycles' : () => Promise<bigint>,
   'get_proposals' : () => Promise<Array<[CanisterId, ProposalOutput]>>,

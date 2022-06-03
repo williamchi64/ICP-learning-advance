@@ -1,61 +1,51 @@
 import Array "mo:base/Array";
-import Float "mo:base/Float";
 import Iter "mo:base/Iter";
 import Nat "mo:base/Nat";
 
 module {
 
-    public type ArrayList<T> = {
-        default : T;
-        size : Nat;
-        arr : [T];
-    };
-
-    public class MutArrayList<T> (init_val : T, al : ?ArrayList<T>) {
+    public class ArrayList<T> (init_array : ?[T]) {
 
         let DEFAULT_INIT_CAPACITY = 5;
+        let MIN_CAPACITY = 5;
         let INCREASE_PROPORTION_DENOMINATOR = 2;
 
-        var default : T = init_val;
-        var size : Nat = switch (al) {
-            case (?al) al.size;
-            case null 0;
-        };
-        var arr : [var T] = switch (al) {
-            case (?al) Array.thaw(al.arr);
-            case null Array.init(DEFAULT_INIT_CAPACITY, init_val);
-        };
+        var size : Nat = 0;
+        var arr : [var ?T] = Array.init(DEFAULT_INIT_CAPACITY, null);
 
-        public func get_default () : T {
-            default
+        switch (init_array) {
+            case (?array) {
+                size := array.size();
+                arr := Array.tabulateVar<?T>(
+                    Nat.max(array.size(), MIN_CAPACITY),
+                    func (n : Nat) {
+                        if (n < array.size()) ?array[n] 
+                        else null
+                    }
+                );
+            };
+            case null {};
         };
 
         public func get_size () : Nat {
             size
         };
 
-        public func freeze () : ArrayList<T> {
-            {
-                default = default;
-                size = size;
-                arr = Array.freeze(arr);
-            }
+        public func freeze () : [T] {
+            Array.tabulate<T>(
+                size, 
+                func (n : Nat) { get_unwrap(n) }
+            )
         };
 
         public func get (n : Nat) : ?T {
-            if (n < size)
-                ?arr[n]
-            else
-                null
-        };
-
-        public func get_unwrap (n : Nat) : T {
-            arr[n]
+            if (n < size) arr[n]
+            else null
         };
 
         public func add (val : T) {
             if (size < arr.size()) {
-                arr.put(size, val);
+                arr.put(size, ?val);
                 size += 1;
             } else {
                 expend(Nat.div(arr.size(), INCREASE_PROPORTION_DENOMINATOR));
@@ -63,21 +53,20 @@ module {
             };
         };
 
-        public func append (mal : MutArrayList<T>) {
-            if (size + mal.get_size() < arr.size()) {
-                for (i in Iter.range(0, mal.get_size() - 1)) {
-                    arr.put(i + size, mal.get_unwrap(i));
+        public func append (al : ArrayList<T>) {
+            if (size + al.get_size() < arr.size()) {
+                for (i in Iter.range(0, al.get_size() - 1)) {
+                    arr.put(i + size, al.get(i));
                 };
-                size += mal.get_size();
+                size += al.get_size();
             } else {
                 expend(Nat.div(arr.size(), INCREASE_PROPORTION_DENOMINATOR));
-                append(mal);
+                append(al);
             };
         };
 
         public func put (n : Nat, val : T) {
-            if (n < size)
-                arr.put(n, val);
+            if (n < size) arr.put(n, ?val);
         };
 
         public func delete (n : Nat) {
@@ -87,21 +76,24 @@ module {
         };
 
         public func iter () : Iter.Iter<T> {
-            var n = 0;
-            Iter.filter<T>(Iter.fromArrayMut(arr), func(val : T) {
-                let flag = (n < size);
-                n += 1;
-                flag
-            })
+            Iter.fromArray(freeze())
+        };
+
+        private func get_unwrap (n : Nat) : T {
+            switch (arr[n]) {
+                case (?val) val;
+                case null {
+                    assert(false);
+                    get_unwrap (0)
+                };
+            }
         };
 
         private func expend (expend_size : Nat) {
-            arr := Array.tabulateVar<T>(arr.size() + expend_size, func (n : Nat) {
-                switch (get(n)) {
-                    case (?val) val;
-                    case null default;
-                }
-            });
+            arr := Array.tabulateVar<?T>(
+                arr.size() + expend_size,
+                func (n : Nat) { get(n) }
+            );
         };
 
         private func shift_left (start : Nat, len : Nat) {
@@ -111,16 +103,9 @@ module {
         };
     };
 
-    public func thaw<T> (al : ArrayList<T>) : MutArrayList<T> {
-        MutArrayList<T>(al.default, ?al)
-    };
-
-    public func map<T, R> (mal : MutArrayList<T>, default : R, f : T -> R) : MutArrayList<R> {
-        let result = MutArrayList<R>(default, null);
-        for (val in mal.iter()) {
-            result.add(f(val));
-        };
-        result
+    public func map <T, R> (al : ArrayList<T>, f : T -> R) : ArrayList<R> {
+        let result_arr = Array.map<T, R>(al.freeze(), f : T -> R);
+        ArrayList<R>(?result_arr)
     };
 
 }

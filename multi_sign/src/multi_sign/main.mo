@@ -31,7 +31,7 @@ actor class () = self {
     let EMPTY_CANISTER_ENTRIES = {default = DEFAULT_CANISTER; size = 0; arr = [];};
 
     stable var canister_ids : List.List<T.CanisterId> = List.nil(); // old
-    var canisters : ArrayList.MutArrayList<T.Canister> = ArrayList.MutArrayList(DEFAULT_CANISTER, null); // new
+    var canisters : ArrayList.ArrayList<T.Canister> = ArrayList.ArrayList(null); // new
     stable var controllers : TrieSet.Set<Principal> = TrieSet.fromArray(
         [
             Principal.fromText("ebffk-bwfav-ug43x-oxpjj-aqko7-e7n5l-2xrpg-twq5s-sjlib-pa6b4-sqe"), 
@@ -45,7 +45,7 @@ actor class () = self {
     var waiting_processes = TrieMap.TrieMap<T.CanisterId, T.ProposalTypes>(Principal.equal, Principal.hash);
 
     // for upgrade data transfer
-    stable var canister_entries : ArrayList.ArrayList<T.Canister> = EMPTY_CANISTER_ENTRIES;
+    stable var canister_entries : [T.Canister] = [];
     stable var proposal_entries : [(T.CanisterId, T.Proposal)] = [];
     stable var waiting_processes_entries : [(T.CanisterId, T.ProposalTypes)] = [];
     system func preupgrade() {
@@ -54,17 +54,19 @@ actor class () = self {
         waiting_processes_entries := Iter.toArray(waiting_processes.entries());
     };
     system func postupgrade() {
-        canisters := ArrayList.thaw(canister_entries);
-        proposals := TrieMap.fromEntries<T.CanisterId, T.Proposal>(proposal_entries.vals(), Principal.equal, Principal.hash);
-        waiting_processes := TrieMap.fromEntries<T.CanisterId, T.ProposalTypes>(waiting_processes_entries.vals(), Principal.equal, Principal.hash);
-        canister_entries := EMPTY_CANISTER_ENTRIES;
-        proposal_entries := [];
-        waiting_processes_entries := [];
         /* 
          * canister_ids : List<T.CanisterId> + waiting_processes : TrieMap<T.CanisterId, T.ProposalTypes> 
          *   -> canisters : MutArrayList<T.Canister>
          */
+        canisters := ArrayList.ArrayList<T.Canister>(?canister_entries);
         canisters.append(U.update_canisters(canister_ids, waiting_processes, DEFAULT_CANISTER));
+        
+        proposals := TrieMap.fromEntries<T.CanisterId, T.Proposal>(proposal_entries.vals(), Principal.equal, Principal.hash);
+        waiting_processes := TrieMap.fromEntries<T.CanisterId, T.ProposalTypes>(waiting_processes_entries.vals(), Principal.equal, Principal.hash);
+        canister_entries := [];
+        proposal_entries := [];
+        waiting_processes_entries := [];
+        
     };
 
     private func get_cid (n : Nat) : T.CanisterId {
@@ -152,13 +154,8 @@ actor class () = self {
         };
         waiting_processes.delete(canister_id);
     };
-    public query func get_canisters_update () : async ArrayList.ArrayList<T.CanisterOuputUpdate> {
-        let al = ArrayList.map<T.Canister, T.CanisterOuputUpdate>(canisters, {
-            id = DEFAULT_CANISTER_ID;
-            lock = #unlock;
-            proposals = Deque.empty<T.ProposalOutputUpdate>();
-        }, F.map_canister_update).freeze();
-        al
+    public query func get_canisters_update () : async [T.CanisterOuputUpdate] {
+        ArrayList.map<T.Canister, T.CanisterOuputUpdate>(canisters, F.map_canister_update).freeze()
     };
     public query func get_canisters () : async List.List<T.CanisterId> {
         canister_ids

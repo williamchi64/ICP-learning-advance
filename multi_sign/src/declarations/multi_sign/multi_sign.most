@@ -18,8 +18,7 @@ type Proposal =
   };
 type ProposalTypes = List<ProposalType>;
 actor {
-  stable var canister_entries :
-    {arr : [Canister]; default : Canister; size : Nat};
+  stable var canister_entries : [Canister];
   stable var canister_ids : ?(CanisterId, List<CanisterId>);
   stable var controllers :
     {#branch : Branch<Principal, ()>; #empty; #leaf : Leaf<Principal, ()>};

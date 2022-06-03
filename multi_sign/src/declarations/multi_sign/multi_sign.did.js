@@ -72,11 +72,6 @@ export const idlFactory = ({ IDL }) => {
     }),
     'proposals' : Deque,
   });
-  const ArrayList = IDL.Record({
-    'arr' : IDL.Vec(CanisterOuputUpdate),
-    'size' : IDL.Nat,
-    'default' : CanisterOuputUpdate,
-  });
   const Hash = IDL.Nat32;
   const Key = IDL.Record({ 'key' : IDL.Principal, 'hash' : Hash });
   List_2.fill(IDL.Opt(IDL.Tuple(IDL.Tuple(Key, IDL.Null), List_2)));
@@ -116,7 +111,11 @@ export const idlFactory = ({ IDL }) => {
     'create_canister' : IDL.Func([IDL.Opt(IDL.Nat)], [IDL.Bool], []),
     'delete_canister' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'get_canisters' : IDL.Func([], [List_4], ['query']),
-    'get_canisters_update' : IDL.Func([], [ArrayList], ['query']),
+    'get_canisters_update' : IDL.Func(
+        [],
+        [IDL.Vec(CanisterOuputUpdate)],
+        ['query'],
+      ),
     'get_controllers' : IDL.Func([], [Set], ['query']),
     'get_cycles' : IDL.Func([], [IDL.Nat], ['query']),
     'get_proposals' : IDL.Func(

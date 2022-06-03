@@ -16,8 +16,8 @@ module {
         canister_ids : List.List<T.CanisterId>, 
         waiting_processes : TrieMap.TrieMap<T.CanisterId, T.ProposalTypes>,
         default_canister : T.Canister
-    ) : ArrayList.MutArrayList<T.Canister> {
-        let result = ArrayList.MutArrayList<T.Canister>(default_canister, null);
+    ) : ArrayList.ArrayList<T.Canister> {
+        let result = ArrayList.ArrayList<T.Canister>(null);
         let cid_iter = Iter.fromList<T.CanisterId>(canister_ids);
         for (cid in cid_iter) {
             var lock = switch (waiting_processes.get(cid)) {
@@ -66,7 +66,7 @@ module {
      */
     public func update_proposals (
         proposals : TrieMap.TrieMap<T.CanisterId, T.Proposal>,
-        canisters : ArrayList.MutArrayList<T.Canister>
+        canisters : ArrayList.ArrayList<T.Canister>
     ) {
         for (canister in canisters.iter()) {
             let proposal = proposals.get(canister.id);

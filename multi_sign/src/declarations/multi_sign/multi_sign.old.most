@@ -1,10 +1,4 @@
 type Branch<K, V> = {left : Trie<K, V>; right : Trie<K, V>; size : Nat};
-type Canister =
-  {
-    id : CanisterId;
-    var lock : {#lock : LockParam; #unlock};
-    var proposals : Deque<ProposalUpdate>
-  };
 type CanisterId = canister_id;
 type Leaf<K, V> = {keyvals : AssocList/1<Key<K>, V>; size : Nat};
 type List<T> = ?(T, List<T>);
@@ -18,8 +12,6 @@ type Proposal =
   };
 type ProposalTypes = List<ProposalType>;
 actor {
-  stable var canister_entries :
-    {arr : [Canister]; default : Canister; size : Nat};
   stable var canister_ids : ?(CanisterId, List<CanisterId>);
   stable var controllers :
     {#branch : Branch<Principal, ()>; #empty; #leaf : Leaf<Principal, ()>};

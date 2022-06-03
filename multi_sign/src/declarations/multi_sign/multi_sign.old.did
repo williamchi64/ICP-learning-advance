@@ -22,14 +22,6 @@ type ProposalTypes =
        ProposalType;
        List;
      };
-type ProposalTypeUpdate = 
- variant {
-   create: CreateParam;
-   delete;
-   install: InstallParam;
-   start;
-   stop;
- };
 type ProposalType = 
  variant {
    create;
@@ -37,19 +29,6 @@ type ProposalType =
    install;
    start;
    stop;
- };
-type ProposalOutputUpdate = 
- record {
-   agree_proportion: record {
-                       denominator: nat;
-                       numerator: nat;
-                     };
-   agree_voters: List_1;
-   proposal_type: ProposalTypeUpdate;
-   total_agree_num: nat;
-   total_voter_num: nat;
-   total_voters: List_1;
-   voter_threshold: nat;
  };
 type ProposalOutput = 
  record {
@@ -61,19 +40,9 @@ type ProposalOutput =
    voter_threshold: nat;
    voter_total: List_1;
  };
-type List__1 = 
- opt record {
-       ProposalOutputUpdate;
-       List_3;
-     };
-type List_4 = 
- opt record {
-       CanisterId;
-       List_4;
-     };
 type List_3 = 
  opt record {
-       ProposalOutputUpdate;
+       CanisterId;
        List_3;
      };
 type List_2 = 
@@ -104,12 +73,6 @@ type Key =
    hash: Hash;
    key: principal;
  };
-type InstallParam = 
- record {
-   mode: InstallMode;
-   wasm_code: blob;
-   wasm_code_sha256: vec nat8;
- };
 type InstallMode = 
  variant {
    install;
@@ -117,12 +80,6 @@ type InstallMode =
    upgrade;
  };
 type Hash = nat32;
-type Deque = 
- record {
-   List__1;
-   List__1;
- };
-type CreateParam = record {cycles: nat;};
 type CanisterStatus = 
  record {
    cycles: nat;
@@ -135,21 +92,6 @@ type CanisterStatus =
              stopped;
              stopping;
            };
- };
-type CanisterOuputUpdate = 
- record {
-   id: CanisterId;
-   lock:
-    variant {
-      lock: record {
-              delete: bool;
-              install: bool;
-              start: bool;
-              stop: bool;
-            };
-      unlock;
-    };
-   proposals: Deque;
  };
 type CanisterId = principal;
 type Branch = 
@@ -166,18 +108,11 @@ type AssocList =
        };
        List_2;
      };
-type ArrayList = 
- record {
-   arr: vec CanisterOuputUpdate;
-   default: CanisterOuputUpdate;
-   size: nat;
- };
 service : {
   canister_status: (nat) -> (CanisterStatus);
   create_canister: (opt nat) -> (bool);
   delete_canister: (nat) -> (bool);
-  get_canisters: () -> (List_4) query;
-  get_canisters_update: () -> (ArrayList) query;
+  get_canisters: () -> (List_3) query;
   get_controllers: () -> (Set) query;
   get_cycles: () -> (nat) query;
   get_proposals: () -> (vec record {
