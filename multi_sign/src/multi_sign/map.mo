@@ -10,13 +10,13 @@ module {
     type Deque<T> = Deque.Deque<T>;
     type List<T> = List.List<T>;
 
-    public type CanisterOuput = {
+    public type CanisterOutput = {
         id : T.CanisterId;
-        lock : { #lock : LockParamOuput; #unlock };
+        lock : { #lock : LockParamOutput; #unlock };
         proposals : [ProposalOutput<T.CanisterProposalType>];
         resolutions : [ProposalOutput<T.CanisterProposalType>];
     };
-    public type LockParamOuput = {
+    public type LockParamOutput = {
         install : T.Permission;
         start : T.Permission;
         stop : T.Permission;
@@ -32,7 +32,7 @@ module {
         total_voters : [Principal];
     };
 
-    public func canister_output (canister : T.Canister) : CanisterOuput {
+    public func canister_output (canister : T.Canister) : CanisterOutput {
         let lock = switch (canister.lock) {
             case (#unlock) #unlock;
             case (#lock(lock_param)) #lock({

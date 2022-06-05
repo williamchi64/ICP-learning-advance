@@ -11,7 +11,7 @@ type anon_class_24_1 =
    delete_canister: (nat, opt text) -> (Result_1);
    execute_resolution: (opt nat) -> (Result_1);
    get_canister: (nat) -> (Result_2) query;
-   get_canisters: () -> (vec CanisterOuput) query;
+   get_canisters: () -> (vec CanisterOutput) query;
    get_controllers: () -> (vec principal) query;
    get_cycles: () -> (nat) query;
    get_old_canisters: () -> (vec CanisterId) query;
@@ -33,7 +33,7 @@ type Result_3 =
 type Result_2 = 
  variant {
    err: Error;
-   ok: CanisterOuput;
+   ok: CanisterOutput;
  };
 type Result_1 = 
  variant {
@@ -90,7 +90,7 @@ type Permission =
    allowed;
    disallowed;
  };
-type LockParamOuput = 
+type LockParamOutput = 
  record {
    delete: Permission;
    install: Permission;
@@ -115,6 +115,7 @@ type Error =
    register_exception: record {msg: text;};
    resolution_exception: record {msg: text;};
    unknown_error: record {msg: text;};
+   vote_exception: record {msg: text;};
  };
 type CanisterStatus = 
  record {
@@ -141,11 +142,11 @@ type CanisterProposalType =
    start;
    stop;
  };
-type CanisterOuput = 
+type CanisterOutput = 
  record {
    id: CanisterId;
    lock: variant {
-           lock: LockParamOuput;
+           lock: LockParamOutput;
            unlock;
          };
    proposals: vec ProposalOutput_1;

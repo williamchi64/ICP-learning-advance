@@ -2,7 +2,7 @@ import { ActorSubclass } from "@dfinity/agent";
 import { AuthClient } from "@dfinity/auth-client";
 import { html, render } from "lit-html";
 import { renderIndex } from ".";
-import { _SERVICE } from "../../../declarations/multi_sign/multi_sign.did";
+import { _SERVICE, CanisterOutput, ProposalOutput } from "../../../declarations/multi_sign/multi_sign.did";
 
 const content = () => html`<div class="container">
   <style>
@@ -48,6 +48,38 @@ const putInSpan = function (e) {
   span.innerText = e.toString();
   return span;
 };
+const createTableDataWithTag = function (e) {
+  let tableData = document.createElement("td");
+  tableData.appendChild(e)
+  return tableData;
+};
+const putArrInTable = function (arr, map) {
+  let table = document.createElement("table");
+  arr.forEach(e => {
+    let tableRow = map(e);
+    table.appendChild(tableRow);
+  });
+  return table;
+};
+const mapCanisterInTableRow = function (canister : CanisterOutput) {
+  let tableRow = document.createElement("tr");
+  tableRow.appendChild(createTableDataWithTag(putInSpan(canister.id)));
+  tableRow.appendChild(createTableDataWithTag(putInSpan(canister.lock)));
+  tableRow.appendChild(createTableDataWithTag(putInList(canister.proposals)));
+  tableRow.appendChild(createTableDataWithTag(putInList(canister.resolutions)));
+  return tableRow;
+};
+const mapProposalInTableRow = function (proposal : ProposalOutput) {
+  let tableRow = document.createElement("tr");
+  tableRow.appendChild(createTableDataWithTag(putInSpan(proposal.proposal_type)));
+  tableRow.appendChild(createTableDataWithTag(putInSpan(proposal.proposal_status)));
+  tableRow.appendChild(createTableDataWithTag(putInSpan(proposal.agree_threshold)));
+  tableRow.appendChild(createTableDataWithTag(putInSpan(proposal.voter_threshold)));
+  tableRow.appendChild(createTableDataWithTag(putInList(proposal.agree_voters)));
+  tableRow.appendChild(createTableDataWithTag(putInList(proposal.total_voters)));
+  return tableRow;
+};
+
 
 export const  renderLoggedIn = async (
   actor: ActorSubclass<_SERVICE>,
@@ -91,7 +123,7 @@ export const  renderLoggedIn = async (
         const response = await actor.get_canisters();
         console.log(response);
         (document.getElementById("blkCanisters") as HTMLInputElement).appendChild(
-          (response.length != 0)? putInList(response): putInSpan("There is no canister under control.")
+          (response.length != 0)? putArrInTable(response, mapCanisterInTableRow): putInSpan("There is no canister under control.")
         );
       } catch (error) {
         console.error(error);
@@ -103,7 +135,7 @@ export const  renderLoggedIn = async (
         const response = await actor.get_public_proposals();
         console.log(response);
         (document.getElementById("blkPublicProposals") as HTMLInputElement).appendChild(
-          (response.length != 0)? putInList(response): putInSpan("There is no public proposal.")
+          (response.length != 0)? putArrInTable(response, mapProposalInTableRow): putInSpan("There is no public proposal.")
         );
       } catch (error) {
         console.error(error);
@@ -115,7 +147,7 @@ export const  renderLoggedIn = async (
         const response = await actor.get_public_resolutions();
         console.log(response);
         (document.getElementById("blkPublicResolutions") as HTMLInputElement).appendChild(
-          (response.length != 0)? putInList(response): putInSpan("There is no public resolution.")
+          (response.length != 0)? putArrInTable(response, mapProposalInTableRow): putInSpan("There is no public resolution.")
         );
       } catch (error) {
         console.error(error);

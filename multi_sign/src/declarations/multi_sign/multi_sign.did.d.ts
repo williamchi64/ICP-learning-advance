@@ -1,9 +1,9 @@
 import type { Principal } from '@dfinity/principal';
 export type CanisterId = Principal;
-export interface CanisterOuput {
+export interface CanisterOutput {
   'id' : CanisterId,
   'resolutions' : Array<ProposalOutput_1>,
-  'lock' : { 'lock' : LockParamOuput } |
+  'lock' : { 'lock' : LockParamOutput } |
     { 'unlock' : null },
   'proposals' : Array<ProposalOutput_1>,
 }
@@ -31,6 +31,7 @@ export type Error = { 'async_call_error' : { 'msg' : string } } |
   { 'resolution_exception' : { 'msg' : string } } |
   { 'register_exception' : { 'msg' : string } } |
   { 'index_out_of_bound_error' : { 'msg' : string } } |
+  { 'vote_exception' : { 'msg' : string } } |
   { 'proposal_exception' : { 'msg' : string } } |
   {
     'not_enough_cycle_exception' : { 'msg' : string, 'cycle_limit' : bigint }
@@ -39,7 +40,7 @@ export type Error = { 'async_call_error' : { 'msg' : string } } |
 export type InstallMode = { 'reinstall' : null } |
   { 'upgrade' : null } |
   { 'install' : null };
-export interface LockParamOuput {
+export interface LockParamOutput {
   'stop' : Permission,
   'delete' : Permission,
   'start' : Permission,
@@ -80,7 +81,7 @@ export type Result = { 'ok' : ProposalStatus } |
   { 'err' : Error };
 export type Result_1 = { 'ok' : { 'msg' : string } } |
   { 'err' : Error };
-export type Result_2 = { 'ok' : CanisterOuput } |
+export type Result_2 = { 'ok' : CanisterOutput } |
   { 'err' : Error };
 export type Result_3 = { 'ok' : CanisterStatus } |
   { 'err' : Error };
@@ -91,7 +92,7 @@ export interface anon_class_24_1 {
     >,
   'execute_resolution' : (arg_0: [] | [bigint]) => Promise<Result_1>,
   'get_canister' : (arg_0: bigint) => Promise<Result_2>,
-  'get_canisters' : () => Promise<Array<CanisterOuput>>,
+  'get_canisters' : () => Promise<Array<CanisterOutput>>,
   'get_controllers' : () => Promise<Array<Principal>>,
   'get_cycles' : () => Promise<bigint>,
   'get_old_canisters' : () => Promise<Array<CanisterId>>,

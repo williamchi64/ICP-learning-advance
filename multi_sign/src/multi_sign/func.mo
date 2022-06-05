@@ -103,6 +103,12 @@ module {
                 };
             };
         }
-    }; 
+    };
+
+    public func check_voter <T> (caller : Principal, proposal : T.Proposal<T>) : Bool {
+        List.some<Principal>(proposal.total_voters, func (voter : Principal) {
+            Principal.equal(voter, caller)
+        })
+    };
 
 }

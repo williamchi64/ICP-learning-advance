@@ -70,6 +70,7 @@ module {
         #register_exception : { msg : Text; };
         #proposal_exception : { msg : Text; };
         #resolution_exception : { msg : Text; };
+        #vote_exception : { msg : Text };
         #unknown_error : { msg : Text };
     };
 

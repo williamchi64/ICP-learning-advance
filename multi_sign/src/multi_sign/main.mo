@@ -57,7 +57,6 @@ actor class () = self {
     };
     system func postupgrade() {
         canisters := ArrayList.ArrayList<T.Canister>(?canister_entries);
-        U.map_canister_ids_to_canisters(canister_ids, canisters);
         canister_entries := []; 
     };
 
@@ -91,10 +90,10 @@ actor class () = self {
     public query func get_controllers () : async [Principal] {
         TrieSet.toArray(controllers)
     };
-    public query func get_canisters () : async [M.CanisterOuput] {
-        ArrayList.map<T.Canister, M.CanisterOuput>(canisters, M.canister_output).freeze()
+    public query func get_canisters () : async [M.CanisterOutput] {
+        ArrayList.map<T.Canister, M.CanisterOutput>(canisters, M.canister_output).freeze()
     };
-    public query func get_canister (n : Nat) : async Result<M.CanisterOuput, T.Error> {
+    public query func get_canister (n : Nat) : async Result<M.CanisterOutput, T.Error> {
         switch (F.get_of_array_list(n, canisters)) {
             case (#err(err)) #err(err);
             case (#ok(val)) #ok(M.canister_output(val));
@@ -121,7 +120,7 @@ actor class () = self {
         agree_threshold : ?Nat
     ) : async Result<{ msg : Text; }, T.Error> {
         if(not F.is_identity_registered(msg.caller, controllers))
-            return #err(#register_exception({ msg = "You have not registered"; }));
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         let vt = Option.get(voter_threshold, DEFAULT_VOTER_THRESHOLD);
         let at = Option.get(agree_threshold, DEFAULT_AGREE_THRESHOLD);
         if (vt < at or vt == 0 or at == 0) return #err(#proposal_exception({ 
@@ -169,13 +168,16 @@ actor class () = self {
             case null msg.caller;
             case (?pseudo) pseudo;
         };
-        assert(F.is_identity_registered(msg_caller, controllers));
+        if(not F.is_identity_registered(msg_caller, controllers))
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         switch (n) {
             case null {
                 let proposal = switch (F.pop_proposal<T.PublicProposalType>(public_proposals)) {
                     case (#ok(val, deque)) { public_proposals := deque; val };
                     case (#err(err)) return #err(err);
                 };
+                if (F.check_voter<T.PublicProposalType>(msg_caller, proposal))
+                    return #err(#vote_exception({ msg = "Caught exception: you have already voted"; }));
                 switch (F.vote_proposal<T.PublicProposalType>(msg_caller, agree, proposal)) {
                     case (#voting) {
                         public_proposals := Deque.pushFront(public_proposals, proposal); 
@@ -204,6 +206,8 @@ actor class () = self {
                     case (#ok(val, deque)) { canister.proposals := deque; val };
                     case (#err(err)) return #err(err);
                 };
+                if (F.check_voter<T.CanisterProposalType>(msg_caller, proposal))
+                    return #err(#vote_exception({ msg = "Caught exception: you have already voted"; }));
                 switch (F.vote_proposal<T.CanisterProposalType>(msg_caller, agree, proposal)) {
                     case (#voting) {
                         canister.proposals := Deque.pushFront(canister.proposals, proposal); 
@@ -229,7 +233,7 @@ actor class () = self {
     // create_canister
     public shared (msg) func execute_resolution (n : ?Nat) : async Result<{ msg : Text; }, T.Error> {
         if(not F.is_identity_registered(msg.caller, controllers))
-            return #err(#register_exception({ msg = "You have not registered"; }));
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         switch (n) {
             case null {
                 let resolution = switch (F.pop_proposal<T.PublicProposalType>(public_resolutions)) {
@@ -264,7 +268,7 @@ actor class () = self {
         message : ?Text
     ) : async Result<{ msg : Text; }, T.Error> {
         if (not F.is_identity_registered(msg.caller, controllers))
-            return #err(#register_exception({ msg = "You have not registered"; }));
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         let canister = switch (F.get_of_array_list(n, canisters)) {
             case (#ok(val)) val;
             case (#err(err)) return #err(err);
@@ -285,7 +289,7 @@ actor class () = self {
     };
     public shared (msg) func start_canister (n : Nat, message : ?Text) : async Result<{ msg : Text; }, T.Error> {
         if(not F.is_identity_registered(msg.caller, controllers))
-            return #err(#register_exception({ msg = "You have not registered"; }));
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         let canister = switch (F.get_of_array_list(n, canisters)) {
             case (#ok(val)) val;
             case (#err(err)) return #err(err);
@@ -300,7 +304,7 @@ actor class () = self {
     };
     public shared (msg) func stop_canister (n : Nat, message : ?Text) : async Result<{ msg : Text; }, T.Error> {
         if(not F.is_identity_registered(msg.caller, controllers))
-            return #err(#register_exception({ msg = "You have not registered"; }));
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         let canister = switch (F.get_of_array_list(n, canisters)) {
             case (#ok(val)) val;
             case (#err(err)) return #err(err);
@@ -315,7 +319,7 @@ actor class () = self {
     };
     public shared (msg) func delete_canister (n : Nat, message : ?Text) : async Result<{ msg : Text; }, T.Error> {
         if(not F.is_identity_registered(msg.caller, controllers))
-            return #err(#register_exception({ msg = "You have not registered"; }));
+            return #err(#register_exception({ msg = "Caught exception: You have not registered"; }));
         let canister = switch (F.get_of_array_list(n, canisters)) {
             case (#ok(val)) val;
             case (#err(err)) return #err(err);

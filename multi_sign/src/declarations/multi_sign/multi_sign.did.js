@@ -22,6 +22,7 @@ export const idlFactory = ({ IDL }) => {
     'resolution_exception' : IDL.Record({ 'msg' : IDL.Text }),
     'register_exception' : IDL.Record({ 'msg' : IDL.Text }),
     'index_out_of_bound_error' : IDL.Record({ 'msg' : IDL.Text }),
+    'vote_exception' : IDL.Record({ 'msg' : IDL.Text }),
     'proposal_exception' : IDL.Record({ 'msg' : IDL.Text }),
     'not_enough_cycle_exception' : IDL.Record({
       'msg' : IDL.Text,
@@ -69,19 +70,19 @@ export const idlFactory = ({ IDL }) => {
     'allowed' : IDL.Null,
     'disallowed' : IDL.Null,
   });
-  const LockParamOuput = IDL.Record({
+  const LockParamOutput = IDL.Record({
     'stop' : Permission,
     'delete' : Permission,
     'start' : Permission,
     'install' : Permission,
   });
-  const CanisterOuput = IDL.Record({
+  const CanisterOutput = IDL.Record({
     'id' : CanisterId,
     'resolutions' : IDL.Vec(ProposalOutput_1),
-    'lock' : IDL.Variant({ 'lock' : LockParamOuput, 'unlock' : IDL.Null }),
+    'lock' : IDL.Variant({ 'lock' : LockParamOutput, 'unlock' : IDL.Null }),
     'proposals' : IDL.Vec(ProposalOutput_1),
   });
-  const Result_2 = IDL.Variant({ 'ok' : CanisterOuput, 'err' : Error });
+  const Result_2 = IDL.Variant({ 'ok' : CanisterOutput, 'err' : Error });
   const PublicProposalType = IDL.Variant({
     'lock' : IDL.Record({ 'n' : IDL.Nat }),
     'unregister' : IDL.Record({ 'identity' : IDL.Principal }),
@@ -108,7 +109,7 @@ export const idlFactory = ({ IDL }) => {
     'delete_canister' : IDL.Func([IDL.Nat, IDL.Opt(IDL.Text)], [Result_1], []),
     'execute_resolution' : IDL.Func([IDL.Opt(IDL.Nat)], [Result_1], []),
     'get_canister' : IDL.Func([IDL.Nat], [Result_2], ['query']),
-    'get_canisters' : IDL.Func([], [IDL.Vec(CanisterOuput)], ['query']),
+    'get_canisters' : IDL.Func([], [IDL.Vec(CanisterOutput)], ['query']),
     'get_controllers' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
     'get_cycles' : IDL.Func([], [IDL.Nat], ['query']),
     'get_old_canisters' : IDL.Func([], [IDL.Vec(CanisterId)], ['query']),
