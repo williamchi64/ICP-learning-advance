@@ -1,90 +1,29 @@
-import ArrayList "ArrayList";
-import Blob "mo:base/Blob";
-import Debug "mo:base/Debug";
 import Deque "mo:base/Deque";
-import Iter "mo:base/Iter";
 import List "mo:base/List";
+import Iter "mo:base/Iter";
+
+import ArrayList "ArrayList";
 import T "type";
-import TrieMap "mo:base/TrieMap";
 
 module {
-    /* 
-     * canister_ids : List<T.CanisterId> + waiting_processes : TrieMap<T.CanisterId, T.ProposalTypes> 
-     *   -> canisters : MutArrayList<T.Canister>
-     */
-    public func update_canisters (
-        canister_ids : List.List<T.CanisterId>, 
-        waiting_processes : TrieMap.TrieMap<T.CanisterId, T.ProposalTypes>,
-        default_canister : T.Canister
-    ) : ArrayList.ArrayList<T.Canister> {
-        let result = ArrayList.ArrayList<T.Canister>(null);
-        let cid_iter = Iter.fromList<T.CanisterId>(canister_ids);
-        for (cid in cid_iter) {
-            var lock = switch (waiting_processes.get(cid)) {
-                case null #unlock;
-                case (?wp) {
-                    // Debug.print("wp" # debug_show(wp));
-                    #lock(
-                        {
-                            var install = List.some<T.ProposalType>(wp, func (pt : T.ProposalType) {pt == #install});
-                            var start = List.some<T.ProposalType>(wp, func (pt : T.ProposalType) {pt == #start});
-                            var stop = List.some<T.ProposalType>(wp, func (pt : T.ProposalType) {pt == #stop});
-                            var delete = List.some<T.ProposalType>(wp, func (pt : T.ProposalType) {pt == #delete});
-                        }
-                    )
-                };
-            };
-            // Debug.print("cid" # debug_show(cid));
-            result.add(
-                {
-                    id = cid;
-                    var lock = lock;
-                    var proposals = Deque.empty<T.ProposalUpdate>();
-                }
-            );
-        };
-        result
-    };
-    private func update_proposal_type (proposal_type : T.ProposalType) : T.ProposalTypeUpdate {
-        switch (proposal_type) {
-            case (#create) {
-                #create({ cycles = 100_000_000_000; })
-            };
-            case (#install) {
-                #install({
-                    wasm_code = Blob.fromArray([0]); wasm_code_sha256 = [0]; mode = #install;
-                })
-            };
-            case (#start) {#start};
-            case (#stop) {#stop};
-            case (#delete) {#delete};
+
+    type ArrayList<T> = ArrayList.ArrayList<T>;
+    type List<T> = List.List<T>;
+
+    // CanisterId to Canister
+    public func map_canister_id_to_canister (canister_id : T.CanisterId) : T.Canister {
+        {
+            id = canister_id;
+            var lock = #unlock;
+            var proposals = Deque.empty<T.Proposal<T.CanisterProposalType>>();
+            var resolutions = Deque.empty<T.Proposal<T.CanisterProposalType>>();
         }
     };
-    /* 
-     * canister_ids : List<T.CanisterId> + waiting_processes : TrieMap<T.CanisterId, T.ProposalTypes> 
-     *   -> canisters : MutArrayList<T.Canister>
-     */
-    public func update_proposals (
-        proposals : TrieMap.TrieMap<T.CanisterId, T.Proposal>,
-        canisters : ArrayList.ArrayList<T.Canister>
-    ) {
-        for (canister in canisters.iter()) {
-            let proposal = proposals.get(canister.id);
-            switch (proposal) {
-                case null {};
-                case (?p) {
-                    canister.proposals := Deque.pushBack<T.ProposalUpdate>(
-                        canister.proposals, 
-                        {
-                            proposal_type = update_proposal_type(p.proposal_type);
-                            voter_threshold = p.voter_threshold;
-                            agree_proportion = { numerator = 1; denominator = 1; };
-                            var agree_voters = p.voter_agree;
-                            var total_voters = p.voter_total;
-                        }
-                    );
-                }
-            };
+
+    public func map_canister_ids_to_canisters (canister_ids : List<T.CanisterId>, canisters : ArrayList<T.Canister>) {
+        let canister_list = List.map<T.CanisterId, T.Canister>(canister_ids, map_canister_id_to_canister);
+        for (canister in Iter.fromList(canister_list)) {
+            canisters.add(canister);
         };
     };
-}
+};

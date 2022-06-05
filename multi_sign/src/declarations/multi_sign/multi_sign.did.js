@@ -1,10 +1,4 @@
 export const idlFactory = ({ IDL }) => {
-  const Branch = IDL.Rec();
-  const List = IDL.Rec();
-  const List_1 = IDL.Rec();
-  const List_2 = IDL.Rec();
-  const List_3 = IDL.Rec();
-  const List_4 = IDL.Rec();
   const definite_canister_settings = IDL.Record({
     'freezing_threshold' : IDL.Nat,
     'controllers' : IDL.Vec(IDL.Principal),
@@ -23,136 +17,132 @@ export const idlFactory = ({ IDL }) => {
     'settings' : definite_canister_settings,
     'module_hash' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
+  const Error = IDL.Variant({
+    'async_call_error' : IDL.Record({ 'msg' : IDL.Text }),
+    'resolution_exception' : IDL.Record({ 'msg' : IDL.Text }),
+    'register_exception' : IDL.Record({ 'msg' : IDL.Text }),
+    'index_out_of_bound_error' : IDL.Record({ 'msg' : IDL.Text }),
+    'proposal_exception' : IDL.Record({ 'msg' : IDL.Text }),
+    'not_enough_cycle_exception' : IDL.Record({
+      'msg' : IDL.Text,
+      'cycle_limit' : IDL.Nat,
+    }),
+    'unknown_error' : IDL.Record({ 'msg' : IDL.Text }),
+  });
+  const Result_3 = IDL.Variant({ 'ok' : CanisterStatus, 'err' : Error });
+  const Result_1 = IDL.Variant({
+    'ok' : IDL.Record({ 'msg' : IDL.Text }),
+    'err' : Error,
+  });
   const CanisterId = IDL.Principal;
-  List_4.fill(IDL.Opt(IDL.Tuple(CanisterId, List_4)));
-  List_1.fill(IDL.Opt(IDL.Tuple(IDL.Principal, List_1)));
-  const CreateParam = IDL.Record({ 'cycles' : IDL.Nat });
+  const ProposalStatus = IDL.Variant({
+    'fail' : IDL.Null,
+    'idle' : IDL.Null,
+    'pass' : IDL.Null,
+    'voting' : IDL.Null,
+  });
   const InstallMode = IDL.Variant({
     'reinstall' : IDL.Null,
     'upgrade' : IDL.Null,
     'install' : IDL.Null,
   });
-  const InstallParam = IDL.Record({
-    'mode' : InstallMode,
-    'wasm_code_sha256' : IDL.Vec(IDL.Nat8),
-    'wasm_code' : IDL.Vec(IDL.Nat8),
-  });
-  const ProposalTypeUpdate = IDL.Variant({
+  const CanisterProposalType = IDL.Variant({
     'stop' : IDL.Null,
     'delete' : IDL.Null,
-    'create' : CreateParam,
     'start' : IDL.Null,
-    'install' : InstallParam,
+    'install' : IDL.Record({
+      'mode' : InstallMode,
+      'wasm_code_sha256' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+      'wasm_code' : IDL.Vec(IDL.Nat8),
+    }),
   });
-  const ProposalOutputUpdate = IDL.Record({
-    'agree_voters' : List_1,
-    'total_voter_num' : IDL.Nat,
-    'total_agree_num' : IDL.Nat,
+  const ProposalOutput_1 = IDL.Record({
+    'msg' : IDL.Opt(IDL.Text),
+    'agree_voters' : IDL.Vec(IDL.Principal),
+    'agree_threshold' : IDL.Nat,
     'voter_threshold' : IDL.Nat,
-    'total_voters' : List_1,
-    'agree_proportion' : IDL.Record({
-      'numerator' : IDL.Nat,
-      'denominator' : IDL.Nat,
-    }),
-    'proposal_type' : ProposalTypeUpdate,
+    'proposal_status' : ProposalStatus,
+    'total_voters' : IDL.Vec(IDL.Principal),
+    'proposal_type' : CanisterProposalType,
   });
-  List_3.fill(IDL.Opt(IDL.Tuple(ProposalOutputUpdate, List_3)));
-  const List__1 = IDL.Opt(IDL.Tuple(ProposalOutputUpdate, List_3));
-  const Deque = IDL.Tuple(List__1, List__1);
-  const CanisterOuputUpdate = IDL.Record({
+  const Permission = IDL.Variant({
+    'allowed' : IDL.Null,
+    'disallowed' : IDL.Null,
+  });
+  const LockParamOuput = IDL.Record({
+    'stop' : Permission,
+    'delete' : Permission,
+    'start' : Permission,
+    'install' : Permission,
+  });
+  const CanisterOuput = IDL.Record({
     'id' : CanisterId,
-    'lock' : IDL.Variant({
-      'lock' : IDL.Record({
-        'stop' : IDL.Bool,
-        'delete' : IDL.Bool,
-        'start' : IDL.Bool,
-        'install' : IDL.Bool,
-      }),
-      'unlock' : IDL.Null,
-    }),
-    'proposals' : Deque,
+    'resolutions' : IDL.Vec(ProposalOutput_1),
+    'lock' : IDL.Variant({ 'lock' : LockParamOuput, 'unlock' : IDL.Null }),
+    'proposals' : IDL.Vec(ProposalOutput_1),
   });
-  const Hash = IDL.Nat32;
-  const Key = IDL.Record({ 'key' : IDL.Principal, 'hash' : Hash });
-  List_2.fill(IDL.Opt(IDL.Tuple(IDL.Tuple(Key, IDL.Null), List_2)));
-  const AssocList = IDL.Opt(IDL.Tuple(IDL.Tuple(Key, IDL.Null), List_2));
-  const Leaf = IDL.Record({ 'size' : IDL.Nat, 'keyvals' : AssocList });
-  const Trie = IDL.Variant({
-    'branch' : Branch,
-    'leaf' : Leaf,
-    'empty' : IDL.Null,
-  });
-  Branch.fill(IDL.Record({ 'left' : Trie, 'size' : IDL.Nat, 'right' : Trie }));
-  const Set = IDL.Variant({
-    'branch' : Branch,
-    'leaf' : Leaf,
-    'empty' : IDL.Null,
-  });
-  const ProposalType = IDL.Variant({
-    'stop' : IDL.Null,
-    'delete' : IDL.Null,
-    'create' : IDL.Null,
-    'start' : IDL.Null,
-    'install' : IDL.Null,
+  const Result_2 = IDL.Variant({ 'ok' : CanisterOuput, 'err' : Error });
+  const PublicProposalType = IDL.Variant({
+    'lock' : IDL.Record({ 'n' : IDL.Nat }),
+    'unregister' : IDL.Record({ 'identity' : IDL.Principal }),
+    'unlock' : IDL.Record({ 'n' : IDL.Nat }),
+    'create' : IDL.Record({ 'cycles' : IDL.Opt(IDL.Nat) }),
+    'register' : IDL.Record({ 'identity' : IDL.Principal }),
   });
   const ProposalOutput = IDL.Record({
-    'total_voter_num' : IDL.Nat,
-    'total_voter_agree' : IDL.Nat,
-    'voter_total' : List_1,
-    'voter_agree' : List_1,
+    'msg' : IDL.Opt(IDL.Text),
+    'agree_voters' : IDL.Vec(IDL.Principal),
+    'agree_threshold' : IDL.Nat,
     'voter_threshold' : IDL.Nat,
-    'agree_proportion' : IDL.Float64,
-    'proposal_type' : ProposalType,
+    'proposal_status' : ProposalStatus,
+    'total_voters' : IDL.Vec(IDL.Principal),
+    'proposal_type' : PublicProposalType,
   });
-  List.fill(IDL.Opt(IDL.Tuple(ProposalType, List)));
-  const ProposalTypes = IDL.Opt(IDL.Tuple(ProposalType, List));
-  const anon_class_20_1 = IDL.Service({
-    'canister_status' : IDL.Func([IDL.Nat], [CanisterStatus], []),
-    'create_canister' : IDL.Func([IDL.Opt(IDL.Nat)], [IDL.Bool], []),
-    'delete_canister' : IDL.Func([IDL.Nat], [IDL.Bool], []),
-    'get_canisters' : IDL.Func([], [List_4], ['query']),
-    'get_canisters_update' : IDL.Func(
-        [],
-        [IDL.Vec(CanisterOuputUpdate)],
-        ['query'],
-      ),
-    'get_controllers' : IDL.Func([], [Set], ['query']),
+  const ProposalType = IDL.Variant({
+    'canister_proposal' : CanisterProposalType,
+    'public_proposal' : PublicProposalType,
+  });
+  const Result = IDL.Variant({ 'ok' : ProposalStatus, 'err' : Error });
+  const anon_class_24_1 = IDL.Service({
+    'canister_status' : IDL.Func([IDL.Nat], [Result_3], []),
+    'delete_canister' : IDL.Func([IDL.Nat, IDL.Opt(IDL.Text)], [Result_1], []),
+    'execute_resolution' : IDL.Func([IDL.Opt(IDL.Nat)], [Result_1], []),
+    'get_canister' : IDL.Func([IDL.Nat], [Result_2], ['query']),
+    'get_canisters' : IDL.Func([], [IDL.Vec(CanisterOuput)], ['query']),
+    'get_controllers' : IDL.Func([], [IDL.Vec(IDL.Principal)], ['query']),
     'get_cycles' : IDL.Func([], [IDL.Nat], ['query']),
-    'get_proposals' : IDL.Func(
+    'get_old_canisters' : IDL.Func([], [IDL.Vec(CanisterId)], ['query']),
+    'get_public_proposals' : IDL.Func([], [IDL.Vec(ProposalOutput)], ['query']),
+    'get_public_resolutions' : IDL.Func(
         [],
-        [IDL.Vec(IDL.Tuple(CanisterId, ProposalOutput))],
-        ['query'],
-      ),
-    'get_waiting_processes' : IDL.Func(
-        [],
-        [IDL.Vec(IDL.Tuple(CanisterId, ProposalTypes))],
+        [IDL.Vec(ProposalOutput)],
         ['query'],
       ),
     'install_code' : IDL.Func(
-        [IDL.Nat, IDL.Vec(IDL.Nat8), InstallMode],
-        [IDL.Bool],
+        [IDL.Nat, IDL.Vec(IDL.Nat8), InstallMode, IDL.Opt(IDL.Text)],
+        [Result_1],
         [],
       ),
     'post_proposal' : IDL.Func(
         [
           IDL.Opt(IDL.Nat),
           ProposalType,
+          IDL.Opt(IDL.Text),
           IDL.Opt(IDL.Nat),
-          IDL.Opt(IDL.Float64),
+          IDL.Opt(IDL.Nat),
         ],
-        [IDL.Bool],
+        [Result_1],
         [],
       ),
-    'register' : IDL.Func([IDL.Opt(IDL.Principal)], [IDL.Principal], []),
-    'start_canister' : IDL.Func([IDL.Nat], [IDL.Bool], []),
-    'stop_canister' : IDL.Func([IDL.Nat], [IDL.Bool], []),
-    'unregister' : IDL.Func([IDL.Opt(IDL.Principal)], [IDL.Principal], []),
-    'vote_proposal' : IDL.Func(
+    'start_canister' : IDL.Func([IDL.Nat, IDL.Opt(IDL.Text)], [Result_1], []),
+    'stop_canister' : IDL.Func([IDL.Nat, IDL.Opt(IDL.Text)], [Result_1], []),
+    'vote' : IDL.Func(
         [IDL.Opt(IDL.Nat), IDL.Bool, IDL.Opt(IDL.Principal)],
-        [IDL.Bool],
+        [Result],
         [],
       ),
+    'whoami' : IDL.Func([], [IDL.Principal], ['query']),
   });
-  return anon_class_20_1;
+  return anon_class_24_1;
 };
 export const init = ({ IDL }) => { return []; };

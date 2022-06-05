@@ -1,0 +1,41 @@
+name: "build"
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    # environment variables to set for dfx
+    env:
+      DFX_VERSION: 0.8.0
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install
+      run: |
+        echo y | DFX_VERSION=$DFX_VERSION bash -ci "$(curl -fsSL https://sdk.dfinity.org/install.sh)"
+        echo "/home/runner/bin" >> $GITHUB_PATH
+        ./scripts/vessel-install.sh
+        ./scripts/repl-install.sh
+
+    - name: Build and deploy
+      run: |
+        set -x
+        dfx cache install
+        dfx start --background
+        dfx deploy --no-wallet
+        dfx canister call Calc test
+    - name: Build docs
+      run: /home/runner/.cache/dfinity/versions/$DFX_VERSION/mo-doc
+    - name: Upload docs
+      uses: JamesIves/github-pages-deploy-action@releases/v3
+      with:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        BRANCH: gh-pages
+        FOLDER: docs/
+    - name: stop dfx
+      run: |
+        echo "dfx stop"
+        dfx stop

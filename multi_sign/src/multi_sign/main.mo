@@ -8,197 +8,103 @@ import Float "mo:base/Float";
 import Iter "mo:base/Iter";
 import List "mo:base/List";
 import Principal "mo:base/Principal";
+import Result "mo:base/Result";
 import Text "mo:base/Text";
 import TrieMap "mo:base/TrieMap";
 import TrieSet "mo:base/TrieSet";
+import Option "mo:base/Option";
+import SHA256 "mo:sha256/SHA256";
 
 import ArrayList "ArrayList";
 import F "func";
 import T "type";
+import M "map";
 import U "update";
 
 actor class () = self {
 
+    type ArrayList<T> = ArrayList.ArrayList<T>;
+    type List<T> = List.List<T>;
+    type Result<T, E> = Result.Result<T, E>;
+    type TrieSet<T> = TrieSet.Set<T>;
+    type Deque<T> = Deque.Deque<T>;
+
     let ic : T.IC = actor("aaaaa-aa");
     let DEFAULT_CANISTER_ID : T.CanisterId = Principal.fromActor(ic);
-    let DEFAULT_CANISTER : T.Canister = {
-        id = DEFAULT_CANISTER_ID;
-        var lock = #unlock;
-        var proposals = Deque.empty<T.ProposalUpdate>();
-    };
-    let DEFAULT_CREATE_CANISTER_CYCLES = 100_000_000_000;
-    let DEFAULT_AGREE_PROPORTION = 1.0;
-    let EMPTY_CANISTER_ENTRIES = {default = DEFAULT_CANISTER; size = 0; arr = [];};
+    let MIN_CANISTER_CREATE_CYCLES = 100_000_000_000;
+    let DEFAULT_CANISTER_CREATE_CYCLES = 200_000_000_000;
+    let DEFAULT_VOTER_THRESHOLD = 5;
+    let DEFAULT_AGREE_THRESHOLD = 3;
 
-    stable var canister_ids : List.List<T.CanisterId> = List.nil(); // old
-    var canisters : ArrayList.ArrayList<T.Canister> = ArrayList.ArrayList(null); // new
-    stable var controllers : TrieSet.Set<Principal> = TrieSet.fromArray(
+    stable var canister_ids : List<T.CanisterId> = List.nil(); // old
+    stable var controllers : TrieSet<Principal> = TrieSet.fromArray(
         [
+            Principal.fromText("2vxsx-fae"),
             Principal.fromText("ebffk-bwfav-ug43x-oxpjj-aqko7-e7n5l-2xrpg-twq5s-sjlib-pa6b4-sqe"), 
             Principal.fromText("to4yd-p3ipb-q2tlu-irxoc-f3gge-7losz-4mqnk-3kmd3-otdhw-nrjlp-aae"), 
             Principal.fromText("wlutc-kzlpm-qchz4-ucxeo-ktswb-jpea6-ocngv-di4oz-heqh4-qtwo7-vqe")
         ], 
         Principal.hash, Principal.equal
     );
-    // Paul's suggest using TrieMap instead of Hashmap
-    var proposals = TrieMap.TrieMap<T.CanisterId, T.Proposal>(Principal.equal, Principal.hash);
-    var waiting_processes = TrieMap.TrieMap<T.CanisterId, T.ProposalTypes>(Principal.equal, Principal.hash);
+    var canisters : ArrayList<T.Canister> = ArrayList.ArrayList(null); // new
+    stable var public_proposals : Deque<T.Proposal<T.PublicProposalType>> = Deque.empty();
+    stable var public_resolutions : Deque<T.Proposal<T.PublicProposalType>> = Deque.empty();
 
     // for upgrade data transfer
     stable var canister_entries : [T.Canister] = [];
-    stable var proposal_entries : [(T.CanisterId, T.Proposal)] = [];
-    stable var waiting_processes_entries : [(T.CanisterId, T.ProposalTypes)] = [];
     system func preupgrade() {
         canister_entries := canisters.freeze();
-        proposal_entries := Iter.toArray(proposals.entries());
-        waiting_processes_entries := Iter.toArray(waiting_processes.entries());
     };
     system func postupgrade() {
-        /* 
-         * canister_ids : List<T.CanisterId> + waiting_processes : TrieMap<T.CanisterId, T.ProposalTypes> 
-         *   -> canisters : MutArrayList<T.Canister>
-         */
         canisters := ArrayList.ArrayList<T.Canister>(?canister_entries);
-        canisters.append(U.update_canisters(canister_ids, waiting_processes, DEFAULT_CANISTER));
-        
-        proposals := TrieMap.fromEntries<T.CanisterId, T.Proposal>(proposal_entries.vals(), Principal.equal, Principal.hash);
-        waiting_processes := TrieMap.fromEntries<T.CanisterId, T.ProposalTypes>(waiting_processes_entries.vals(), Principal.equal, Principal.hash);
-        canister_entries := [];
-        proposal_entries := [];
-        waiting_processes_entries := [];
-        
+        U.map_canister_ids_to_canisters(canister_ids, canisters);
+        canister_entries := []; 
     };
 
-    private func get_cid (n : Nat) : T.CanisterId {
-        F.get<T.CanisterId>(n, canister_ids, DEFAULT_CANISTER_ID)
+    public query func get_old_canisters () : async [T.CanisterId] {
+        List.toArray(canister_ids)
     };
-    private func remove_cid (n : Nat) {
-        canister_ids := F.remove(n, canister_ids);
+
+    public shared query (msg) func whoami () : async Principal {
+        msg.caller
     };
-    // invoke function<Principal -> ()>, return bool determining success
-    private func invoke (
-        function : shared {canister_id : T.CanisterId} -> async (),
-        n : Nat,
-        proposal_type : T.ProposalType
-    ) : async Bool {
-        if (not check_waiting_process(?n, proposal_type))
-            return false;
-        try {
-            await function({canister_id = get_cid(n)});
-        } catch (e) {
-            Debug.print("Caught error: " # Error.message(e));
-            refund_waiting_process(?n, proposal_type);
-            return false;
-        };
-        true
-    };
+
     /* 
-     * check if a proposal type is in the waiting process list, and consume(delete) the proposal type, 
-     *   return true if existing
+     * show canister status. A field - idle_cycles_burned_per_second : Float is ignored, 
+     *   probably caused by the different environment with the main net
      */
-    private func check_waiting_process (n : ?Nat, check_proposal_type : T.ProposalType) : Bool {
-        let canister_id = switch (n) {
-            case (?n) get_cid(n);
-            case null DEFAULT_CANISTER_ID;
-        };
-        switch (waiting_processes.get(canister_id)) {
-            case null {
-                Debug.print("Caught exception: please post and vote a proposal first");
-                return false;
+    public shared func canister_status (n : Nat) : async Result<T.CanisterStatus, T.Error> {
+        switch (F.get_canister_id(n, canisters)) {
+            case (#ok(val)) {
+                try {
+                    #ok(await ic.canister_status({ canister_id = val }))
+                } catch (e) {
+                    #err(#async_call_error({ msg = "Caught error: " # Error.message(e) }))
+                }
             };
-            case (?waiting_process) {
-                var mut_waiting_process = waiting_process;
-                if (List.size(waiting_process) <= 0) {
-                    Debug.print("Caught exception: you have run out of resolution. Please pass a resolution first");
-                    return false;
-                };
-                var flag = false;
-                var index = 0;
-                label L for (proposal_type in Iter.fromList(waiting_process)) {
-                    if (proposal_type == check_proposal_type) {
-                        mut_waiting_process := F.remove<T.ProposalType>(index, mut_waiting_process);
-                        waiting_processes.put(canister_id, mut_waiting_process);
-                        flag := true;
-                        break L;
-                    };
-                    index += 1;
-                };
-                if (not flag) {
-                    Debug.print("Caught exception: you have run out of resolution. Please pass a resolution first");
-                    return false;
-                };
-            };
-        };
-        Debug.print("Consume a resolution");
-        true
-    };
-    // only used in try catch when the process catch an error
-    private func refund_waiting_process(n : ?Nat, refund_proposal_type : T.ProposalType) {
-        let canister_id = switch (n) {
-            case (?n) get_cid(n);
-            case null DEFAULT_CANISTER_ID;
-        };
-        switch (waiting_processes.get(canister_id)) {
-            case null {};
-            case (?waiting_process) {
-                var mut_waiting_process = waiting_process;
-                mut_waiting_process := List.push(refund_proposal_type, mut_waiting_process);
-                waiting_processes.put(canister_id, mut_waiting_process);
-            };
-        };
-    };
-    private func remove_wp(n : ?Nat) {
-        let canister_id = switch (n) {
-            case (?n) get_cid(n);
-            case null DEFAULT_CANISTER_ID;
-        };
-        waiting_processes.delete(canister_id);
-    };
-    public query func get_canisters_update () : async [T.CanisterOuputUpdate] {
-        ArrayList.map<T.Canister, T.CanisterOuputUpdate>(canisters, F.map_canister_update).freeze()
-    };
-    public query func get_canisters () : async List.List<T.CanisterId> {
-        canister_ids
-    };
-    public query func get_controllers () : async TrieSet.Set<Principal> {
-        controllers
-    };
-    public query func get_proposals () : async [(T.CanisterId, T.ProposalOutput)] {
-        // Array.map<(T.CanisterId, T.Proposal),(T.CanisterId, T.ProposalOutput)>(Iter.toArray(proposals.entries()), F.map_proposal)
-        let hm = TrieMap.map<T.CanisterId, T.Proposal, T.ProposalOutput>(proposals, Principal.equal, Principal.hash, F.map_proposal);
-        Iter.toArray(hm.entries())
-    };
-    public query func get_waiting_processes () : async [(T.CanisterId, T.ProposalTypes)] {
-        Iter.toArray(waiting_processes.entries())
+            case (#err(err)) #err(err);
+        }
     };
     public query func get_cycles () : async Nat {
         Cycles.balance()
     };
-    // register self or other as a controller
-    public shared (msg) func register(registerer : ?Principal) : async Principal {
-        let add_controller = switch (registerer) {
-            case null msg.caller;
-            case (?controller) controller;
-        };
-        if (TrieSet.mem(controllers, add_controller, Principal.hash(add_controller), Principal.equal)) {
-            Debug.print(debug_show(add_controller) # " has already registered");
-            return DEFAULT_CANISTER_ID;
-        };
-        controllers := TrieSet.put(controllers, add_controller, Principal.hash(add_controller), Principal.equal);
-        add_controller
+    public query func get_controllers () : async [Principal] {
+        TrieSet.toArray(controllers)
     };
-    // unregister self or other as a controller
-    public shared (msg) func unregister(unregisterer : ?Principal) : async Principal {
-        let delete_controller = switch (unregisterer) {
-            case null msg.caller;
-            case (?controller) controller;
-        };
-        if (not TrieSet.mem(controllers, delete_controller, Principal.hash(delete_controller), Principal.equal)) {
-            Debug.print(debug_show(delete_controller) # " has already unregistered or never registered");
-            return DEFAULT_CANISTER_ID;
-        };
-        controllers := TrieSet.delete(controllers, delete_controller, Principal.hash(delete_controller), Principal.equal);
-        delete_controller
+    public query func get_canisters () : async [M.CanisterOuput] {
+        ArrayList.map<T.Canister, M.CanisterOuput>(canisters, M.canister_output).freeze()
+    };
+    public query func get_canister (n : Nat) : async Result<M.CanisterOuput, T.Error> {
+        switch (F.get_of_array_list(n, canisters)) {
+            case (#err(err)) #err(err);
+            case (#ok(val)) #ok(M.canister_output(val));
+        }
+    };
+    public query func get_public_proposals () : async [M.ProposalOutput<T.PublicProposalType>] {
+        M.array_of_proposal(public_proposals)
+    };
+    public query func get_public_resolutions () : async [M.ProposalOutput<T.PublicProposalType>] {
+        M.array_of_proposal(public_resolutions)
     };
     /* 
      * post a proposal with affected canister number, proposal type, voter threshold(num of total voter)
@@ -208,111 +114,306 @@ actor class () = self {
      * For each canister(or null), only a proposal is allowed at the same time.
      */
     public shared (msg) func post_proposal (
-        n : ?Nat, 
-        proposal_type : T.ProposalType, 
-        voter_threshold : ?Nat, 
-        agree_proportion : ?Float
-    ) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
-        let canister_id = switch (n) {
-            case (?n) {
-                let canister_id = get_cid(n);
-                if (proposal_type == #create) {
-                    Debug.print("Caught exception: the canister process of #create is not appropriate for a existing canister");
-                    return false;
+        n : ?Nat,
+        proposal_type : T.ProposalType,
+        message : ?Text,
+        voter_threshold : ?Nat,
+        agree_threshold : ?Nat
+    ) : async Result<{ msg : Text; }, T.Error> {
+        if(not F.is_identity_registered(msg.caller, controllers))
+            return #err(#register_exception({ msg = "You have not registered"; }));
+        let vt = Option.get(voter_threshold, DEFAULT_VOTER_THRESHOLD);
+        let at = Option.get(agree_threshold, DEFAULT_AGREE_THRESHOLD);
+        if (vt < at or vt == 0 or at == 0) return #err(#proposal_exception({ 
+            msg = "Caught exception: your are trapped because of one of two reasons: " 
+                # "Voter threshold is less than agree threshold; " 
+                # "Either Voter threshold or agree threshold is equal to zero. "; 
+        }));
+        switch (proposal_type) {
+            case (#public_proposal(public_proposal_type)) {
+                switch (n) {
+                    case null {};
+                    case (?n) return #err(#proposal_exception({ 
+                        msg = "Caught exception: for public proposal type, index of a canister is not allowed"; 
+                    }));
                 };
-                if (canister_id == DEFAULT_CANISTER_ID) {
-                    Debug.print("Caught exception: the number is out of bound of canister list");
-                    return false;
+                switch (post_public_proposal(public_proposal_type, message, vt, at)) {
+                    case (#ok(val)) #ok(val);
+                    case (#err(err)) return #err(err);
                 };
-                canister_id
             };
-            case null {
-                if (proposal_type != #create) {
-                    Debug.print("Caught exception: missing canister number for the canister process of #install, #start, #stop or #delete");
-                    return false;
+            case (#canister_proposal(canister_proposal_type)) {
+                let index = switch (n) {
+                    case null return #err(#proposal_exception({ 
+                        msg = "Caught exception: for canister proposal type, null is not allowed"; 
+                    }));
+                    case (?n) n;
                 };
-                DEFAULT_CANISTER_ID
+                switch (post_canister_proposal(index, canister_proposal_type, message, vt, at)) {
+                    case (#ok(val)) #ok(val);
+                    case (#err(err)) return #err(err);
+                };
             };
         };
-        switch (proposals.get(canister_id)) {
-            case (?proposal) {
-                Debug.print("Caught exception: please finish existing proposal first");
-                return false;
-            };
-            case null (); 
-        };
-        let proposal = F.construct_proposal(proposal_type, voter_threshold, agree_proportion, TrieSet.size(controllers), DEFAULT_AGREE_PROPORTION);
-        proposals.put(canister_id, proposal);
-        true
     };
+
     /* 
      * vote a proposal with cnaister number and agree(or not), use pseudo-caller to simulate real-life voting process
      */
-    public shared (msg) func vote_proposal (n : ?Nat, agree : Bool, pseudo_caller : ?Principal) : async Bool {
+    public shared (msg) func vote (
+        n : ?Nat,
+        agree : Bool,
+        pseudo_caller : ?Principal
+    ) : async Result<T.ProposalStatus, T.Error> {
         let msg_caller = switch (pseudo_caller) {
             case null msg.caller;
             case (?pseudo) pseudo;
         };
-        assert(TrieSet.mem(controllers, msg_caller, Principal.hash(msg_caller), Principal.equal));
-        let canister_id = switch (n) {
-            case (?x) get_cid(x);
-            case null DEFAULT_CANISTER_ID;
-        };
-        switch (proposals.get(canister_id)) {
+        assert(F.is_identity_registered(msg_caller, controllers));
+        switch (n) {
             case null {
-                Debug.print("Caught exception: please post a proposal first");
-                return false;
-            };
-            case (?proposal) {
-                switch(List.find(proposal.voter_total, func (caller : Principal) : Bool { Principal.equal(msg_caller, caller) })) {
-                    case (?caller) {
-                        Debug.print(debug_show(msg.caller) # "has already voted");
-                        return false;
-                    };
-                    case null {};
+                let proposal = switch (F.pop_proposal<T.PublicProposalType>(public_proposals)) {
+                    case (#ok(val, deque)) { public_proposals := deque; val };
+                    case (#err(err)) return #err(err);
                 };
-                switch (F.vote(proposal, agree, msg.caller)) {
+                switch (F.vote_proposal<T.PublicProposalType>(msg_caller, agree, proposal)) {
                     case (#voting) {
-                        Debug.print("The canister process of " # debug_show(proposal.proposal_type) # " is voting");
-                        return false;
-                    };  
-                    case (#fail) {
-                        Debug.print("The canister process of " # debug_show(proposal.proposal_type) # " failed");
-                        proposals.delete(canister_id);
-                        return false;
+                        public_proposals := Deque.pushFront(public_proposals, proposal); 
+                        return #ok(#voting);
                     };
                     case (#pass) {
-                        Debug.print("The voting pass the resolution of canister process of " # debug_show(proposal.proposal_type));
-                        var waiting_process = switch (waiting_processes.get(canister_id)) {
-                            case (?x) {x};
-                            case null {List.nil<T.ProposalType>()};
-                        };
-                        waiting_process := List.push(proposal.proposal_type, waiting_process);
-                        waiting_processes.put(canister_id, waiting_process);
-                        proposals.delete(canister_id);
+                        public_resolutions := Deque.pushBack(public_resolutions, proposal);
+                        return #ok(#pass);
+                    }; 
+                    case (#fail) {
+                        return #ok(#fail);
+                    };
+                    case (_) {
+                        return #err(#unknown_error({
+                            msg = "Caught error: it is not allowed to get idle status of a proposal after voting process"; 
+                        }));
                     };
                 };
-            };  
-        };
-        true
-    };
-    // five types of canister process in total. Each invocation will consume a resolution.
-    // create_canister
-    public shared (msg) func create_canister (cycles : ?Nat) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
-        let amount = switch (cycles) {
-            case (?amount) {
-                if (amount > Cycles.balance()) {
-                    Debug.print("Amount cycles over balance. Please input with the amount less than " # debug_show(Cycles.balance()));
-                    return false;
-                };
-                amount
             };
-            case null DEFAULT_CREATE_CANISTER_CYCLES;
+            case (?n) {
+                let canister = switch (F.get_of_array_list<T.Canister>(n, canisters)) {
+                    case (#ok(val)) val;
+                    case (#err(err)) return #err(err);
+                };
+                let proposal = switch (F.pop_proposal<T.CanisterProposalType>(canister.proposals)) {
+                    case (#ok(val, deque)) { canister.proposals := deque; val };
+                    case (#err(err)) return #err(err);
+                };
+                switch (F.vote_proposal<T.CanisterProposalType>(msg_caller, agree, proposal)) {
+                    case (#voting) {
+                        canister.proposals := Deque.pushFront(canister.proposals, proposal); 
+                        return #ok(#voting);
+                    };
+                    case (#pass) {
+                        canister.resolutions := Deque.pushBack(canister.resolutions, proposal);
+                        return #ok(#pass);
+                    }; 
+                    case (#fail) {
+                        return #ok(#fail);
+                    };
+                    case (_) {
+                        return #err(#unknown_error({
+                            msg = "Caught error: it is not allowed to get idle status of a proposal after voting process"; 
+                        }));
+                    };
+                };
+            };
         };
-        if (not check_waiting_process(null, #create))
-            return false;
+        
+    };
+    // create_canister
+    public shared (msg) func execute_resolution (n : ?Nat) : async Result<{ msg : Text; }, T.Error> {
+        if(not F.is_identity_registered(msg.caller, controllers))
+            return #err(#register_exception({ msg = "You have not registered"; }));
+        switch (n) {
+            case null {
+                let resolution = switch (F.pop_proposal<T.PublicProposalType>(public_resolutions)) {
+                    case (#ok(val, deque)) { public_resolutions := deque; val };
+                    case (#err(err)) return #err(err);
+                };
+                switch (await execute_public_resolution_by_type(resolution.proposal_type)) {
+                    case (#ok(val)) #ok(val);
+                    case (#err(err)) return #err(err);
+                };
+            };
+            case (?n) {
+                let canister = switch (F.get_of_array_list<T.Canister>(n, canisters)) {
+                    case (#ok(val)) val;
+                    case (#err(err)) return #err(err);
+                };
+                let resolution = switch (F.pop_proposal<T.CanisterProposalType>(canister.resolutions)) {
+                    case (#ok(val, deque)) { canister.resolutions := deque; val };
+                    case (#err(err)) return #err(err);
+                };
+                switch (await execute_canister_resolution_by_type(n, resolution.proposal_type)) {
+                    case (#ok(val)) #ok(val);
+                    case (#err(err)) return #err(err);
+                };
+            };
+        };
+    };
+    public shared (msg) func install_code (
+        n : Nat,
+        wasm_code : Blob,
+        mode : T.InstallMode,
+        message : ?Text
+    ) : async Result<{ msg : Text; }, T.Error> {
+        if (not F.is_identity_registered(msg.caller, controllers))
+            return #err(#register_exception({ msg = "You have not registered"; }));
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        let wasm_code_sha256 = SHA256.sha256(Blob.toArray(wasm_code));
+        if (F.check_lock(canister)) {
+            return await execute_install_code(n, wasm_code, wasm_code_sha256, mode);
+        };
+        let proposal_type = #install({
+            wasm_code = wasm_code;
+            wasm_code_sha256 = ?wasm_code_sha256;
+            mode = mode;
+        });
+        switch (post_canister_proposal(n, proposal_type, message, DEFAULT_VOTER_THRESHOLD, DEFAULT_AGREE_THRESHOLD)) {
+            case (#ok({msg})) #ok({ msg = "code install is locked, " # msg # " instead" });
+            case (#err(err)) #err(err);
+        }
+    };
+    public shared (msg) func start_canister (n : Nat, message : ?Text) : async Result<{ msg : Text; }, T.Error> {
+        if(not F.is_identity_registered(msg.caller, controllers))
+            return #err(#register_exception({ msg = "You have not registered"; }));
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        if (F.check_lock(canister)) {
+            return await execute_start_canister(n);
+        };
+        switch (post_canister_proposal(n, #start, message, DEFAULT_VOTER_THRESHOLD, DEFAULT_AGREE_THRESHOLD)) {
+            case (#ok({msg})) #ok({ msg = "canister start is locked, " # msg # " instead" });
+            case (#err(err)) #err(err);
+        }
+    };
+    public shared (msg) func stop_canister (n : Nat, message : ?Text) : async Result<{ msg : Text; }, T.Error> {
+        if(not F.is_identity_registered(msg.caller, controllers))
+            return #err(#register_exception({ msg = "You have not registered"; }));
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        if (F.check_lock(canister)) {
+            return await execute_stop_canister(n);
+        };
+        switch (post_canister_proposal(n, #stop, message, DEFAULT_VOTER_THRESHOLD, DEFAULT_AGREE_THRESHOLD)) {
+            case (#ok({msg})) #ok({ msg = "canister stop is locked, " # msg # " instead" });
+            case (#err(err)) #err(err);
+        }
+    };
+    public shared (msg) func delete_canister (n : Nat, message : ?Text) : async Result<{ msg : Text; }, T.Error> {
+        if(not F.is_identity_registered(msg.caller, controllers))
+            return #err(#register_exception({ msg = "You have not registered"; }));
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        if (F.check_lock(canister)) {
+            return await execute_delete_canister(n);
+        };
+        switch (post_canister_proposal(n, #delete, message, DEFAULT_VOTER_THRESHOLD, DEFAULT_AGREE_THRESHOLD)) {
+            case (#ok({msg})) #ok({ msg = "canister delete is locked, " # msg # " instead" });
+            case (#err(err)) #err(err);
+        }
+    };
+
+    private func post_public_proposal (
+        proposal_type : T.PublicProposalType,
+        message : ?Text,
+        voter_threshold : Nat,
+        agree_threshold : Nat
+    ) : Result<{ msg : Text; }, T.Error> {
+        switch (check_public_proposal(proposal_type)) {
+            case (#ok()) {};
+            case (#err(err)) return #err(err);
+        };
+        let proposal = {
+            proposal_type = proposal_type;
+            var proposal_status : T.ProposalStatus = #idle;
+            msg = message;
+            voter_threshold = voter_threshold;
+            agree_threshold = agree_threshold;
+            var agree_voters = List.nil<Principal>();
+            var total_voters = List.nil<Principal>();
+        };
+        public_proposals := Deque.pushBack(public_proposals, proposal);
+        #ok({ msg = "success, post a public proposal"; })
+    };
+    private func post_canister_proposal (
+        n : Nat,
+        proposal_type : T.CanisterProposalType,
+        message : ?Text,
+        voter_threshold : Nat,
+        agree_threshold : Nat
+    ) : Result<{ msg : Text; }, T.Error> {
+        switch (check_canister_proposal(proposal_type)) {
+            case (#ok()) {};
+            case (#err(err)) return #err(err);
+        };
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        let pt = F.fill_wasm_code_sha256(proposal_type);
+        let proposal = {
+            proposal_type = pt;
+            var proposal_status : T.ProposalStatus = #idle;
+            msg = message;
+            voter_threshold = voter_threshold;
+            agree_threshold = agree_threshold;
+            var agree_voters = List.nil<Principal>();
+            var total_voters = List.nil<Principal>();
+        };
+        canister.proposals := Deque.pushBack(canister.proposals, proposal);
+        #ok({ msg = "success, post a canister proposal"; })
+    };
+
+    // register self or other as a controller
+    private func register (registerer : Principal) : Result<{ msg : Text; }, T.Error> {
+        controllers := TrieSet.put(controllers, registerer, Principal.hash(registerer), Principal.equal);
+        #ok({ msg = "registered identity: " # Principal.toText(registerer); })
+    };
+    // unregister self or other as a controller
+    private func unregister (unregisterer : Principal) : Result<{ msg : Text; }, T.Error> {
+        controllers := TrieSet.delete(controllers, unregisterer, Principal.hash(unregisterer), Principal.equal);
+        #ok({ msg = "unregistered identity: " # Principal.toText(unregisterer); })
+    };
+    private func lock (n : Nat) : Result<{ msg : Text; }, T.Error> {
+        let canister = switch (F.get_of_array_list<T.Canister>(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        let lock_param : T.LockParam = {
+            var install = #disallowed;
+            var start = #disallowed;
+            var stop = #disallowed;
+            var delete = #disallowed;
+        };
+        canister.lock := #lock(lock_param);
+        #ok({ msg = "canister lock success: " # Principal.toText(canister.id); })
+    };
+    private func unlock (n : Nat) : Result<{ msg : Text; }, T.Error> {
+        let canister = switch (F.get_of_array_list<T.Canister>(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        canister.lock := #unlock;
+        #ok({ msg = "canister unlock success: " # Principal.toText(canister.id); })
+    };
+    private func create_canister (cycles : ?Nat) : async Result<{ msg : Text; }, T.Error> {
+        var result = DEFAULT_CANISTER_ID;
         let canister_settings = {
             settings = ?{
                 controllers = ?[Principal.fromActor(self)];
@@ -321,66 +422,186 @@ actor class () = self {
                 compute_allocation = null;
             };
         };
+        let amount = switch (cycles) {
+            case (?amount) {
+                let balance = Cycles.balance();
+                if (amount > balance) {
+                    return #err(#not_enough_cycle_exception({ 
+                        msg = "Caught exception: the amount of input cycles is currently larger than the balance. " 
+                            # "Please repost a public proposal with the amount less than " # debug_show(balance);
+                        cycle_limit = balance;
+                    }));
+                };
+                amount
+            };
+            case null DEFAULT_CANISTER_CREATE_CYCLES;
+        };
         try {
             Cycles.add(amount);
-            let result = await ic.create_canister(canister_settings);
+            result := (await ic.create_canister(canister_settings)).canister_id;
             let refund = Cycles.refunded();
-            Debug.print("Refund " # debug_show(refund));
-            Debug.print("Current balance " # debug_show(Cycles.balance()));
-            canister_ids := List.push(result.canister_id, canister_ids);
         } catch (e) {
-            Debug.print("Caught error: " # Error.message(e));
-            refund_waiting_process(null, #create);
-            return false;
+            return #err(#async_call_error({ msg = "Caught error: " # Error.message(e); }));
         };
-        remove_wp(null);
-        true
+        let canister : T.Canister = {
+            id = result;
+            var lock = #unlock;
+            var proposals = Deque.empty<T.Proposal<T.CanisterProposalType>>();
+            var resolutions = Deque.empty<T.Proposal<T.CanisterProposalType>>();
+        };
+        canisters.add(canister);
+        #ok({ msg = "created canister: " # Principal.toText(result); })
+    };
+    private func execute_public_resolution_by_type (
+        proposal_type : T.PublicProposalType
+    ) : async Result<{ msg : Text; }, T.Error> {
+        switch (proposal_type) {
+            case (#register({identity})) register(identity);
+            case (#unregister({identity})) unregister(identity);
+            case (#create({cycles})) await create_canister(cycles);
+            case (#lock({n})) lock(n);
+            case (#unlock({n})) unlock(n);
+        }
+    };
+    
+    private func execute_canister_resolution_by_type (
+        n : Nat,
+        proposal_type : T.CanisterProposalType
+    ) : async Result<{ msg : Text; }, T.Error> {
+        switch (proposal_type) {
+            case (#install({wasm_code; wasm_code_sha256; mode;})) {
+                let wcs256 = switch (wasm_code_sha256) {
+                    case (?wcs256) wcs256;
+                    case null return #err(#unknown_error({
+                        msg = "Caught error: wasm code sha256 is erroneously missed in install execution";
+                    }));
+                };
+                await execute_install_code(n, wasm_code, wcs256, mode);
+            };
+            case (#start) await execute_start_canister(n);
+            case (#stop) await execute_stop_canister(n);
+            case (#delete) await execute_delete_canister(n);
+        };
     };
     // install_code
-    public shared (msg) func install_code (n : Nat, code : Blob, mode : T.InstallMode) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
-        if (not check_waiting_process(?n, #install))
-            return false;
+    private func execute_install_code (
+        n : Nat,
+        wasm_code : Blob,
+        wasm_code_sha256 : [Nat8],
+        mode : T.InstallMode
+    ) : async Result<{ msg : Text; }, T.Error> {
+        let canister = switch (F.get_of_array_list<T.Canister>(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
         let code_settings = {
-            canister_id = get_cid(n);
-            wasm_module = Blob.toArray(code);
-            mode = #install;
+            canister_id = canister.id;
+            wasm_module = Blob.toArray(wasm_code);
+            mode = mode;
             arg = [];
         };
         try {
             await ic.install_code(code_settings);
         } catch (e) {
-            Debug.print("Caught error: " # Error.message(e));
-            refund_waiting_process(?n, #install);
-            return false;
+            return #err(#async_call_error({ msg = "Caught error: " # Error.message(e); }));
         };
-        true
+        #ok({ msg = "code install success, hash code: " # debug_show(wasm_code_sha256); })
     };
     // start_canister
-    public shared (msg) func start_canister (n : Nat) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
-        await invoke(ic.start_canister, n, #start)
+    private func execute_start_canister (n : Nat) : async Result<{ msg : Text; }, T.Error> {
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        try {
+            await ic.start_canister({ canister_id = canister.id; });
+        } catch (e) {
+            return #err(#async_call_error({ msg = "Caught error: " # Error.message(e); }));
+        };
+        #ok({ msg = "canister start success, canister: " # Principal.toText(canister.id); })
     };
     // stop_canister
-    public shared (msg) func stop_canister (n : Nat) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
-        await invoke(ic.stop_canister, n, #stop)
+    private func execute_stop_canister (n : Nat) : async Result<{ msg : Text; }, T.Error> {
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
+        };
+        try {
+            await ic.stop_canister({ canister_id = canister.id; });
+        } catch (e) {
+            return #err(#async_call_error({ msg = "Caught error: " # Error.message(e); }));
+        };
+        #ok({ msg = "canister stop success, canister: " # Principal.toText(canister.id); })
     };
     // delete_canister
-    public shared (msg) func delete_canister (n : Nat) : async Bool {
-        assert(TrieSet.mem(controllers, msg.caller, Principal.hash(msg.caller), Principal.equal));
-        let flag = await invoke(ic.delete_canister, n, #delete);
-        if (flag) {
-            remove_wp(?n);
-            remove_cid(n);
+    private func execute_delete_canister (n : Nat) : async Result<{ msg : Text; }, T.Error> {
+        let canister = switch (F.get_of_array_list(n, canisters)) {
+            case (#ok(val)) val;
+            case (#err(err)) return #err(err);
         };
-        flag
+        try {
+            await ic.delete_canister({ canister_id = canister.id; });
+        } catch (e) {
+            return #err(#async_call_error({ msg = "Caught error: " # Error.message(e); }));
+        };
+        canisters.delete(n);
+        #ok({ msg = "canister delete success, canister: " # Principal.toText(canister.id); })
     };
-    /* 
-     * show canister status. A field - idle_cycles_burned_per_second : Float is ignored, 
-     *   probably caused by the different environment with the main net
-     */
-    public func canister_status (n : Nat) : async T.CanisterStatus {
-        await ic.canister_status({ canister_id = get_cid(n) })
+
+    private func check_public_proposal (proposal_type : T.PublicProposalType) : Result<(), T.Error> {
+        switch (proposal_type) {
+            case (#register({identity})) { 
+                if(F.is_identity_registered(identity, controllers)) return #err(#register_exception({
+                    msg = "Caught Exception: " 
+                        # debug_show(identity) # " has already registered" 
+                }));
+            };
+            case (#unregister({identity})) {
+                if(not F.is_identity_registered(identity, controllers)) return #err(#register_exception({ 
+                    msg = "Caught Exception: " 
+                        # debug_show(identity) # " has already unregistered or never registered"
+                }));
+            };
+            case (#create({cycles})) {
+                switch (cycles) {
+                    case (?cycles) {
+                        let balance = Cycles.balance();
+                        if (cycles > balance) return #err(#not_enough_cycle_exception({ 
+                            msg = "Caught exception: the amount of input cycles is larger than the balance. " 
+                                # "Please input with the amount less than " # debug_show(balance);
+                            cycle_limit = balance;
+                        }));
+                        if (cycles < MIN_CANISTER_CREATE_CYCLES) return #err(#not_enough_cycle_exception({ 
+                            msg = "Caught exception: the amount of cycles is less than the minimun requirement of a canister creation process. "
+                                # "Please input with the amount larger than " # debug_show(MIN_CANISTER_CREATE_CYCLES);
+                            cycle_limit = MIN_CANISTER_CREATE_CYCLES;
+                        }));
+                    };
+                    case null {};
+                };
+            };
+            case (#lock({n})) {
+                if (n >= canisters.get_size()) return #err(#index_out_of_bound_error({ 
+                    msg = "Caught Error: the index is out of bound" 
+                }));
+            };
+            case (#unlock({n})) {
+                if (n >= canisters.get_size()) return #err(#index_out_of_bound_error({ 
+                    msg = "Caught Error: the index is out of bound" 
+                }));
+            };
+        };
+        #ok()
     };
+
+    private func check_canister_proposal (proposal_type : T.CanisterProposalType) : Result<(), T.Error> {
+        switch (proposal_type) {
+            case (#install({ wasm_code; wasm_code_sha256; mode; })) {};
+            case (#start) {};
+            case (#stop) {};
+            case (#delete) {};
+        };
+        #ok()
+    };
+
 };

@@ -1,0 +1,8 @@
+*~
+.vessel
+*.wasm
+*.did
+moc
+vessel
+docs
+.dfx

@@ -1,88 +1,108 @@
-import ArrayList "ArrayList";
+import Blob "mo:base/Blob";
 import Debug "mo:base/Debug";
 import Deque "mo:base/Deque";
 import Error "mo:base/Error";
 import Float "mo:base/Float";
 import Iter "mo:base/Iter";
 import List "mo:base/List";
-import T "type";
+import Res "mo:base/Float";
+import Result "mo:base/Result";
 import TrieMap "mo:base/TrieMap";
+import TrieSet "mo:base/TrieSet";
+import Principal "mo:base/Principal";
+
+import SHA256 "mo:sha256/SHA256";
+
+import ArrayList "ArrayList";
+import T "type";
 
 module {
 
-    public func get<A> (n : Nat, list : List.List<A>, default : A) : A {
-        switch (List.get(list, n)) {
-            case (?x) x;
-            case null {
-                if (n != 0) get<A> (0, list, default) else default
+    type ArrayList<T> = ArrayList.ArrayList<T>;
+    type Result<T, E> = Result.Result<T, E>;
+    type TrieSet<T> = TrieSet.Set<T>;
+    type Deque<T> = Deque.Deque<T>;
+
+    public func get_of_array_list<T> (n : Nat, al : ArrayList<T>) : Result<T, T.Error> {
+        Result.fromOption<T, T.Error>(
+            al.get(n),
+            #index_out_of_bound_error({ msg = "Caught Error: the index is out of bound" })
+        )
+    };
+
+    public func get_canister_id (n : Nat, canisters : ArrayList<T.Canister>) : Result<T.CanisterId, T.Error> {
+        Result.mapOk<T.Canister, T.CanisterId,T.Error>(
+            Result.fromOption<T.Canister, T.Error>(
+                canisters.get(n), 
+                #index_out_of_bound_error({ msg = "Caught Error: the index is out of bound" })
+            ), 
+            func (canister : T.Canister) { canister.id }
+        )
+    };
+
+    public func is_identity_registered (identity : Principal, controllers : TrieSet<Principal>) : Bool {
+        TrieSet.mem(controllers, identity, Principal.hash(identity), Principal.equal)
+    };
+
+    public func pop_proposal<T> (proposals : Deque<T.Proposal<T>>) : Result<(T.Proposal<T>, Deque<T.Proposal<T>>), T.Error> {
+        switch (Deque.popFront(proposals)) {
+            case (null) {
+                return #err(#proposal_exception({ 
+                    msg = "Caught exception: there is no proposal in the list. " 
+                        # "Please post a proposal or vote a proposal first" 
+                }));
             };
-        }
+            case (?(val, deque)) #ok(val, deque);
+        };
     };
-    public func remove<A> (n : Nat, list : List.List<A>) : List.List<A> {
-        let head_part = List.take(list, n);
-        let tail_part = List.drop(list, n + 1);
-        List.append(head_part, tail_part)
-    };
-    public func vote (
-        proposal : T.Proposal, 
-        agree : Bool, 
-        caller : Principal
+
+    public func vote_proposal <T> (
+        caller : Principal,
+        agree : Bool,
+        proposal : T.Proposal<T>
     ) : T.ProposalStatus {
-        if (agree) proposal.voter_agree := List.push(caller, proposal.voter_agree);
-        proposal.voter_total := List.push(caller, proposal.voter_total);
-        if (List.size(proposal.voter_total) < proposal.voter_threshold) return #voting;
-        let agree_threshold = Float.toInt(
-            Float.mul(
-                Float.fromInt(proposal.voter_threshold), proposal.agree_proportion
-            )
-        );
-        if (List.size(proposal.voter_agree) < agree_threshold) #fail else #pass
+        if (agree) proposal.agree_voters := List.push(caller, proposal.agree_voters);
+        proposal.total_voters := List.push(caller, proposal.total_voters);
+        if (List.size(proposal.total_voters) < proposal.voter_threshold) {
+            proposal.proposal_status := #voting;
+            return #voting;
+        };
+        if (List.size(proposal.agree_voters) < proposal.agree_threshold) {
+            proposal.proposal_status := #fail;
+            #fail
+        } else {
+            proposal.proposal_status := #pass;
+            #pass
+        };
     };
-    public func construct_proposal (
-        proposal_type : T.ProposalType, 
-        voter_threshold : ?Nat, 
-        agree_proportion : ?Float,
-        default_voter_threshold : Nat,
-        default_agree_proportion : Float
-    ) : T.Proposal {
-        {
-            proposal_type = proposal_type;
-            voter_threshold = switch (voter_threshold) {
-                case (?x) x; case null default_voter_threshold};
-            agree_proportion = switch (agree_proportion) {
-                case (?x) x; case null default_agree_proportion};
-            var voter_agree = List.nil<Principal>();
-            var voter_total = List.nil<Principal>();
-        }
+
+    public func fill_wasm_code_sha256 (proposal_type : T.CanisterProposalType) : T.CanisterProposalType {
+        switch (proposal_type) {
+            case (#install({ wasm_code; wasm_code_sha256; mode; })) {
+                let wcs256 = switch (wasm_code_sha256) {
+                    case (?wcs256) wcs256;
+                    case null SHA256.sha256(Blob.toArray(wasm_code));
+                };
+                #install({
+                    wasm_code = wasm_code;
+                    wasm_code_sha256 = ?wcs256;
+                    mode = mode;
+                })
+            };
+            case _ proposal_type;
+        };
     };
-    public func map_proposal (canister_id : T.CanisterId, proposal : T.Proposal) : T.ProposalOutput {
-        {
-            proposal_type = proposal.proposal_type;
-            voter_threshold = proposal.voter_threshold;
-            agree_proportion = proposal.agree_proportion;
-            voter_agree = proposal.voter_agree;
-            voter_total = proposal.voter_total;
-            total_voter_agree = List.size(proposal.voter_agree);
-            total_voter_num = List.size(proposal.voter_total);
-        }
-    };
-    public func map_canister_update (canister : T.Canister) : T.CanisterOuputUpdate {
-        {
-            id = canister.id;
-            lock = switch (canister.lock) { 
-                case (#unlock) #unlock;
-                case (#lock(x)) {#lock(
-                        {
-                            install = x.install;
-                            start = x.start;
-                            stop = x.stop;
-                            delete = x.delete;
-                        }
-                    )
+
+    public func check_lock (canister : T.Canister) : Bool {
+        switch (canister.lock) {
+            case (#unlock) true;
+            case (#lock(lock_param)) {
+                switch (lock_param.install) {
+                    case (#allowed) true;
+                    case (#disallowed) false;
                 };
             };
-            proposals = Deque.empty<T.ProposalOutputUpdate>();
         }
-    };
-    
+    }; 
+
 }

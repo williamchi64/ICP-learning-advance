@@ -4,19 +4,11 @@ import List "mo:base/List";
 import IC "ic";
 
 module {
+
+    type Deque<T> = Deque.Deque<T>;
+    type List<T> = List.List<T>;
+
     public type IC = IC.Self;
-    public type CanisterId = IC.canister_id;
-    public type LockParam = {
-        var install : Bool;
-        var start : Bool;
-        var stop : Bool;
-        var delete : Bool;
-    };
-    public type Canister = {
-        id : CanisterId;
-        var lock : { #lock : LockParam; #unlock; };
-        var proposals : Deque.Deque<ProposalUpdate>;
-    };
     public type CanisterStatus = {
         status : { #stopped; #stopping; #running; };
         freezing_threshold : Nat;
@@ -26,65 +18,59 @@ module {
         module_hash : ?[Nat8];
         // idle_cycles_burned_per_second : Float;
     };
-    public type InstallMode = { #install; #upgrade; #reinstall; };
-    public type CreateParam = { cycles : Nat; };
-    public type InstallParam = { wasm_code : Blob; wasm_code_sha256 : [Nat8]; mode : InstallMode; };
-    public type ProposalType = {
-        // #create : CreateParam;
-        #create;
-        // #install : InstallParam;
-        #install;
-        #start; #stop; #delete;
-    };
-    public type ProposalTypeUpdate = {
-        #create : CreateParam;
-        // #create;
-        #install : InstallParam;
-        // #install;
-        #start; #stop; #delete;
-    };
-    public type ProposalTypes = List.List<ProposalType>;
-    public type Proposal = {
-        proposal_type : ProposalType;
-        voter_threshold : Nat;
-        agree_proportion : Float;
-        var voter_agree : List.List<Principal>;
-        var voter_total : List.List<Principal>;
-    };
-    public type ProposalUpdate = {
-        proposal_type : ProposalTypeUpdate;
-        voter_threshold : Nat;
-        agree_proportion : { numerator : Nat; denominator : Nat; };
-        var agree_voters : List.List<Principal>;
-        var total_voters : List.List<Principal>;
-    };
-    public type ProposalOutput = {
-        proposal_type : ProposalType;
-        voter_threshold : Nat;
-        agree_proportion : Float;
-        voter_agree : List.List<Principal>;
-        voter_total : List.List<Principal>;
-        total_voter_agree : Nat;
-        total_voter_num : Nat;
-    };
-    public type CanisterOuputUpdate = {
+    public type Canister = {
         id : CanisterId;
-        lock : { #lock : {
-            install : Bool;
-            start : Bool;
-            stop : Bool;
-            delete : Bool;
-        }; #unlock; };
-        proposals : Deque.Deque<ProposalOutputUpdate>;
+        var lock : { #lock : LockParam; #unlock; };
+        var proposals : Deque<Proposal<CanisterProposalType>>;
+        var resolutions : Deque<Proposal<CanisterProposalType>>;
     };
-    public type ProposalOutputUpdate = {
-        proposal_type : ProposalTypeUpdate;
+    public type CanisterId = IC.canister_id;
+    public type LockParam = {
+        var install : Permission;
+        var start : Permission;
+        var stop : Permission;
+        var delete : Permission;
+    };
+    public type Permission = { #allowed; #disallowed; };
+    public type Proposal <T> = {
+        proposal_type : T;
+        var proposal_status : ProposalStatus;
+        msg : ?Text;
         voter_threshold : Nat;
-        agree_proportion : { numerator : Nat; denominator : Nat; };
-        agree_voters : List.List<Principal>;
-        total_voters : List.List<Principal>;
-        total_agree_num : Nat;
-        total_voter_num : Nat;
+        agree_threshold : Nat;
+        var agree_voters : List<Principal>;
+        var total_voters : List<Principal>;
     };
-    public type ProposalStatus = { #voting; #pass; #fail; };
+    public type ProposalType = {
+        #public_proposal : PublicProposalType; 
+        #canister_proposal : CanisterProposalType;
+    };
+    public type PublicProposalType = {
+        #register : { identity : Principal };
+        #unregister : { identity : Principal };
+        #create : { cycles : ?Nat; };
+        #lock : { n : Nat; };
+        #unlock : { n : Nat; };
+    };
+    public type CanisterProposalType = {
+        #install : {
+            wasm_code : Blob;
+            wasm_code_sha256 : ?[Nat8];
+            mode : InstallMode;
+        };
+        #start; #stop; #delete;
+    };
+    public type InstallMode = { #install; #upgrade; #reinstall; };
+    public type ProposalStatus = { #idle; #voting; #pass; #fail; };
+
+    public type Error = {
+        #index_out_of_bound_error : { msg : Text; };
+        #async_call_error : { msg : Text; };
+        #not_enough_cycle_exception : { msg : Text; cycle_limit : Nat; };
+        #register_exception : { msg : Text; };
+        #proposal_exception : { msg : Text; };
+        #resolution_exception : { msg : Text; };
+        #unknown_error : { msg : Text };
+    };
+
 }

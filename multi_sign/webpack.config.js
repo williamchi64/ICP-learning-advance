@@ -4,6 +4,14 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 const CopyPlugin = require("copy-webpack-plugin");
 
+const network =
+  process.env.DFX_NETWORK ||
+  (process.env.NODE_ENV === "production" ? "ic" : "local");
+
+// Replace this value with the ID of your local Internet Identity canister
+const LOCAL_II_CANISTER =
+  "http://qjdve-lqaaa-aaaaa-aaaeq-cai.localhost:8000/#authorize";
+
 function initCanisterEnv() {
   let localCanisters, prodCanisters;
   try {
@@ -21,9 +29,9 @@ function initCanisterEnv() {
     console.log("No production canister_ids.json found. Continuing with local");
   }
 
-  const network =
-    process.env.DFX_NETWORK ||
-    (process.env.NODE_ENV === "production" ? "ic" : "local");
+  // const network =
+  //   process.env.DFX_NETWORK ||
+  //   (process.env.NODE_ENV === "production" ? "ic" : "local");
 
   const canisterConfig = network === "local" ? localCanisters : prodCanisters;
 
@@ -48,7 +56,7 @@ module.exports = {
   entry: {
     // The frontend.entrypoint points to the HTML file for this build, so we need
     // to replace the extension to `.js`.
-    index: path.join(__dirname, asset_entry).replace(/\.html$/, ".js"),
+    index: path.join(__dirname, asset_entry).replace(/\.html$/, ".ts"),
   },
   devtool: isDevelopment ? "source-map" : false,
   optimization: {
@@ -75,12 +83,12 @@ module.exports = {
   // webpack configuration. For example, if you are using React
   // modules and CSS as described in the "Adding a stylesheet"
   // tutorial, uncomment the following lines:
-  // module: {
-  //  rules: [
-  //    { test: /\.(ts|tsx|jsx)$/, loader: "ts-loader" },
-  //    { test: /\.css$/, use: ['style-loader','css-loader'] }
-  //  ]
-  // },
+  module: {
+   rules: [
+     { test: /\.(ts|tsx|jsx)$/, loader: "ts-loader" },
+    //  { test: /\.css$/, use: ['style-loader','css-loader'] }
+   ]
+  },
   plugins: [
     new HtmlWebpackPlugin({
       template: path.join(__dirname, asset_entry),
@@ -96,6 +104,8 @@ module.exports = {
     }),
     new webpack.EnvironmentPlugin({
       NODE_ENV: "development",
+      LOCAL_II_CANISTER,
+      DFX_NETWORK: network,
       ...canisterEnvVariables,
     }),
     new webpack.ProvidePlugin({

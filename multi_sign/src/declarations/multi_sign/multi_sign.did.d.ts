@@ -1,20 +1,22 @@
 import type { Principal } from '@dfinity/principal';
-export type AssocList = [] | [[[Key, null], List_2]];
-export interface Branch { 'left' : Trie, 'size' : bigint, 'right' : Trie }
 export type CanisterId = Principal;
-export interface CanisterOuputUpdate {
+export interface CanisterOuput {
   'id' : CanisterId,
-  'lock' : {
-      'lock' : {
-        'stop' : boolean,
-        'delete' : boolean,
-        'start' : boolean,
-        'install' : boolean,
-      }
-    } |
+  'resolutions' : Array<ProposalOutput_1>,
+  'lock' : { 'lock' : LockParamOuput } |
     { 'unlock' : null },
-  'proposals' : Deque,
+  'proposals' : Array<ProposalOutput_1>,
 }
+export type CanisterProposalType = { 'stop' : null } |
+  { 'delete' : null } |
+  { 'start' : null } |
+  {
+    'install' : {
+      'mode' : InstallMode,
+      'wasm_code_sha256' : [] | [Array<number>],
+      'wasm_code' : Array<number>,
+    }
+  };
 export interface CanisterStatus {
   'status' : { 'stopped' : null } |
     { 'stopping' : null } |
@@ -25,90 +27,97 @@ export interface CanisterStatus {
   'settings' : definite_canister_settings,
   'module_hash' : [] | [Array<number>],
 }
-export interface CreateParam { 'cycles' : bigint }
-export type Deque = [List__1, List__1];
-export type Hash = number;
+export type Error = { 'async_call_error' : { 'msg' : string } } |
+  { 'resolution_exception' : { 'msg' : string } } |
+  { 'register_exception' : { 'msg' : string } } |
+  { 'index_out_of_bound_error' : { 'msg' : string } } |
+  { 'proposal_exception' : { 'msg' : string } } |
+  {
+    'not_enough_cycle_exception' : { 'msg' : string, 'cycle_limit' : bigint }
+  } |
+  { 'unknown_error' : { 'msg' : string } };
 export type InstallMode = { 'reinstall' : null } |
   { 'upgrade' : null } |
   { 'install' : null };
-export interface InstallParam {
-  'mode' : InstallMode,
-  'wasm_code_sha256' : Array<number>,
-  'wasm_code' : Array<number>,
+export interface LockParamOuput {
+  'stop' : Permission,
+  'delete' : Permission,
+  'start' : Permission,
+  'install' : Permission,
 }
-export interface Key { 'key' : Principal, 'hash' : Hash }
-export interface Leaf { 'size' : bigint, 'keyvals' : AssocList }
-export type List = [] | [[ProposalType, List]];
-export type List_1 = [] | [[Principal, List_1]];
-export type List_2 = [] | [[[Key, null], List_2]];
-export type List_3 = [] | [[ProposalOutputUpdate, List_3]];
-export type List_4 = [] | [[CanisterId, List_4]];
-export type List__1 = [] | [[ProposalOutputUpdate, List_3]];
+export type Permission = { 'allowed' : null } |
+  { 'disallowed' : null };
 export interface ProposalOutput {
-  'total_voter_num' : bigint,
-  'total_voter_agree' : bigint,
-  'voter_total' : List_1,
-  'voter_agree' : List_1,
+  'msg' : [] | [string],
+  'agree_voters' : Array<Principal>,
+  'agree_threshold' : bigint,
   'voter_threshold' : bigint,
-  'agree_proportion' : number,
-  'proposal_type' : ProposalType,
+  'proposal_status' : ProposalStatus,
+  'total_voters' : Array<Principal>,
+  'proposal_type' : PublicProposalType,
 }
-export interface ProposalOutputUpdate {
-  'agree_voters' : List_1,
-  'total_voter_num' : bigint,
-  'total_agree_num' : bigint,
+export interface ProposalOutput_1 {
+  'msg' : [] | [string],
+  'agree_voters' : Array<Principal>,
+  'agree_threshold' : bigint,
   'voter_threshold' : bigint,
-  'total_voters' : List_1,
-  'agree_proportion' : { 'numerator' : bigint, 'denominator' : bigint },
-  'proposal_type' : ProposalTypeUpdate,
+  'proposal_status' : ProposalStatus,
+  'total_voters' : Array<Principal>,
+  'proposal_type' : CanisterProposalType,
 }
-export type ProposalType = { 'stop' : null } |
-  { 'delete' : null } |
-  { 'create' : null } |
-  { 'start' : null } |
-  { 'install' : null };
-export type ProposalTypeUpdate = { 'stop' : null } |
-  { 'delete' : null } |
-  { 'create' : CreateParam } |
-  { 'start' : null } |
-  { 'install' : InstallParam };
-export type ProposalTypes = [] | [[ProposalType, List]];
-export type Set = { 'branch' : Branch } |
-  { 'leaf' : Leaf } |
-  { 'empty' : null };
-export type Trie = { 'branch' : Branch } |
-  { 'leaf' : Leaf } |
-  { 'empty' : null };
-export interface anon_class_20_1 {
-  'canister_status' : (arg_0: bigint) => Promise<CanisterStatus>,
-  'create_canister' : (arg_0: [] | [bigint]) => Promise<boolean>,
-  'delete_canister' : (arg_0: bigint) => Promise<boolean>,
-  'get_canisters' : () => Promise<List_4>,
-  'get_canisters_update' : () => Promise<Array<CanisterOuputUpdate>>,
-  'get_controllers' : () => Promise<Set>,
+export type ProposalStatus = { 'fail' : null } |
+  { 'idle' : null } |
+  { 'pass' : null } |
+  { 'voting' : null };
+export type ProposalType = { 'canister_proposal' : CanisterProposalType } |
+  { 'public_proposal' : PublicProposalType };
+export type PublicProposalType = { 'lock' : { 'n' : bigint } } |
+  { 'unregister' : { 'identity' : Principal } } |
+  { 'unlock' : { 'n' : bigint } } |
+  { 'create' : { 'cycles' : [] | [bigint] } } |
+  { 'register' : { 'identity' : Principal } };
+export type Result = { 'ok' : ProposalStatus } |
+  { 'err' : Error };
+export type Result_1 = { 'ok' : { 'msg' : string } } |
+  { 'err' : Error };
+export type Result_2 = { 'ok' : CanisterOuput } |
+  { 'err' : Error };
+export type Result_3 = { 'ok' : CanisterStatus } |
+  { 'err' : Error };
+export interface anon_class_24_1 {
+  'canister_status' : (arg_0: bigint) => Promise<Result_3>,
+  'delete_canister' : (arg_0: bigint, arg_1: [] | [string]) => Promise<
+      Result_1
+    >,
+  'execute_resolution' : (arg_0: [] | [bigint]) => Promise<Result_1>,
+  'get_canister' : (arg_0: bigint) => Promise<Result_2>,
+  'get_canisters' : () => Promise<Array<CanisterOuput>>,
+  'get_controllers' : () => Promise<Array<Principal>>,
   'get_cycles' : () => Promise<bigint>,
-  'get_proposals' : () => Promise<Array<[CanisterId, ProposalOutput]>>,
-  'get_waiting_processes' : () => Promise<Array<[CanisterId, ProposalTypes]>>,
+  'get_old_canisters' : () => Promise<Array<CanisterId>>,
+  'get_public_proposals' : () => Promise<Array<ProposalOutput>>,
+  'get_public_resolutions' : () => Promise<Array<ProposalOutput>>,
   'install_code' : (
       arg_0: bigint,
       arg_1: Array<number>,
       arg_2: InstallMode,
-    ) => Promise<boolean>,
+      arg_3: [] | [string],
+    ) => Promise<Result_1>,
   'post_proposal' : (
       arg_0: [] | [bigint],
       arg_1: ProposalType,
-      arg_2: [] | [bigint],
-      arg_3: [] | [number],
-    ) => Promise<boolean>,
-  'register' : (arg_0: [] | [Principal]) => Promise<Principal>,
-  'start_canister' : (arg_0: bigint) => Promise<boolean>,
-  'stop_canister' : (arg_0: bigint) => Promise<boolean>,
-  'unregister' : (arg_0: [] | [Principal]) => Promise<Principal>,
-  'vote_proposal' : (
+      arg_2: [] | [string],
+      arg_3: [] | [bigint],
+      arg_4: [] | [bigint],
+    ) => Promise<Result_1>,
+  'start_canister' : (arg_0: bigint, arg_1: [] | [string]) => Promise<Result_1>,
+  'stop_canister' : (arg_0: bigint, arg_1: [] | [string]) => Promise<Result_1>,
+  'vote' : (
       arg_0: [] | [bigint],
       arg_1: boolean,
       arg_2: [] | [Principal],
-    ) => Promise<boolean>,
+    ) => Promise<Result>,
+  'whoami' : () => Promise<Principal>,
 }
 export interface definite_canister_settings {
   'freezing_threshold' : bigint,
@@ -116,4 +125,4 @@ export interface definite_canister_settings {
   'memory_allocation' : bigint,
   'compute_allocation' : bigint,
 }
-export interface _SERVICE extends anon_class_20_1 {}
+export interface _SERVICE extends anon_class_24_1 {}

@@ -3,25 +3,40 @@ type Canister =
   {
     id : CanisterId;
     var lock : {#lock : LockParam; #unlock};
-    var proposals : Deque<ProposalUpdate>
+    var proposals : Deque/1<Proposal<CanisterProposalType>>;
+    var resolutions : Deque/1<Proposal<CanisterProposalType>>
   };
 type CanisterId = canister_id;
 type Leaf<K, V> = {keyvals : AssocList/1<Key<K>, V>; size : Nat};
 type List<T> = ?(T, List<T>);
-type Proposal =
+type List/1<T> = List<T>;
+type Proposal<T> =
   {
-    agree_proportion : Float;
-    proposal_type : ProposalType;
-    var voter_agree : List<Principal>;
-    voter_threshold : Nat;
-    var voter_total : List<Principal>
+    agree_threshold : Nat;
+    var agree_voters : List/3<Principal>;
+    msg : ?Text;
+    var proposal_status : ProposalStatus;
+    proposal_type : T;
+    var total_voters : List/3<Principal>;
+    voter_threshold : Nat
   };
-type ProposalTypes = List<ProposalType>;
+type PublicProposalType =
+  {
+    #create : {cycles : ?Nat};
+    #lock : {n : Nat};
+    #register : {identity : Principal};
+    #unlock : {n : Nat};
+    #unregister : {identity : Principal}
+  };
 actor {
   stable var canister_entries : [Canister];
   stable var canister_ids : ?(CanisterId, List<CanisterId>);
   stable var controllers :
     {#branch : Branch<Principal, ()>; #empty; #leaf : Leaf<Principal, ()>};
-  stable var proposal_entries : [(CanisterId, Proposal)];
-  stable var waiting_processes_entries : [(CanisterId, ProposalTypes)]
+  stable var public_proposals :
+    (List/1<Proposal<PublicProposalType>>,
+     List/1<Proposal<PublicProposalType>>);
+  stable var public_resolutions :
+    (List/1<Proposal<PublicProposalType>>,
+     List/1<Proposal<PublicProposalType>>)
 };
