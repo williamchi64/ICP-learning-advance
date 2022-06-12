@@ -3,7 +3,7 @@ import { CanisterOutput, ProposalOutput, _SERVICE } from "../../../../declaratio
 import c from "../../func/constant";
 import md from "../../func/modifyDom";
 
-const content = () => html`<div id="blkPublicProposalSubData"></div>`;
+const content = () => html`<div id="publicProposalSubData"></div>`;
 
 export const renderPublicProposalSubData = async (
     proposals : Array<ProposalOutput>
@@ -22,33 +22,31 @@ export const renderPublicProposalSubData = async (
                         : ("unlock" in proposal.proposal_type) ? "unlock id: " + proposal.proposal_type.unlock.n.toString()
                         : ("create" in proposal.proposal_type) ? "create cycles: " + proposal.proposal_type.create.cycles.toString()
                         : "no branch";
-                    (document.getElementById("blkPublicProposalSubData") as HTMLDivElement).innerHTML = "";
-                    (document.getElementById("blkPublicProposalSubData") as HTMLDivElement).appendChild(md.strToSpan(param));
+                    (document.getElementById("publicProposalSubData") as HTMLDivElement).innerHTML = "";
+                    (document.getElementById("publicProposalSubData") as HTMLDivElement).appendChild(md.strToSpan(param));
                 };
 
-        // let btn_canister_proposals = c.BTN_CANISTER.proposals + index;
-        // if (document.getElementById(btn_canister_proposals) !== null)
-        //     (document.getElementById(btn_canister_proposals) as HTMLButtonElement)
-        //         .onclick = () => {
-        //             (document.getElementById("blkPublicProposalSubData") as HTMLDivElement).innerHTML = "";
-        //             (document.getElementById("blkPublicProposalSubData") as HTMLDivElement).appendChild(
-        //                 md.arrToTable(
-        //                     md.toTableHeadRow(c.PROPOSAL_COLUMNS), canister.proposals, md.proposalToTableRow, c.BTN_CANISTER_PROPOSAL, c.CANISTER_PROPOSAL_TYPE_BRANCH
-        //                 )
-        //             );
-        //         };
+        let btn_public_proposal_agree_voters = c.BTN_PROPOSAL.agree_voters + index;
+        if (document.getElementById(btn_public_proposal_agree_voters) !== null)
+            (document.getElementById(btn_public_proposal_agree_voters) as HTMLButtonElement)
+                .onclick = () => {
+                    (document.getElementById("publicProposalSubData") as HTMLDivElement).innerHTML = "";
+                    (document.getElementById("publicResolutionSubData") as HTMLDivElement).appendChild(md.strToSpan("agree voter: "));
+                    (document.getElementById("publicProposalSubData") as HTMLDivElement).appendChild(
+                        md.toList(proposal.agree_voters)
+                    );
+                };
 
-        // let btn_canister_resolutions = c.BTN_CANISTER.resolutions + index;
-        // if (document.getElementById(btn_canister_resolutions) !== null)
-        //     (document.getElementById(btn_canister_resolutions) as HTMLButtonElement)
-        //         .onclick = () => {
-        //             (document.getElementById("blkPublicProposalSubData") as HTMLDivElement).innerHTML = "";
-        //             (document.getElementById("blkPublicProposalSubData") as HTMLDivElement).appendChild(
-        //                 md.arrToTable(
-        //                     md.toTableHeadRow(c.PROPOSAL_COLUMNS), canister.resolutions, md.proposalToTableRow, c.BTN_CANISTER_RESOLUTION, c.CANISTER_PROPOSAL_TYPE_BRANCH
-        //                 )
-        //             );
-        //         };
+        let btn_public_proposal_total_voters = c.BTN_PROPOSAL.total_voters + index;
+        if (document.getElementById(btn_public_proposal_total_voters) !== null)
+            (document.getElementById(btn_public_proposal_total_voters) as HTMLButtonElement)
+                .onclick = () => {
+                    (document.getElementById("publicProposalSubData") as HTMLDivElement).innerHTML = "";
+                    (document.getElementById("publicResolutionSubData") as HTMLDivElement).appendChild(md.strToSpan("total voter: "));
+                    (document.getElementById("publicProposalSubData") as HTMLDivElement).appendChild(
+                        md.toList(proposal.total_voters)
+                    );
+                };
 
     });
 

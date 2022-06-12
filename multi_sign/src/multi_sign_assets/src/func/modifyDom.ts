@@ -1,5 +1,5 @@
 import { UnionType } from "typescript";
-import { CanisterOutput, ProposalOutput, LockParamOutput, PublicProposalType, ProposalStatus, ProposalOutput_1 } from "../../../declarations/multi_sign/multi_sign.did";
+import { CanisterOutput, ProposalOutput, LockParamOutput, PublicProposalType, ProposalStatus, ProposalOutput_1, InstallMode } from "../../../declarations/multi_sign/multi_sign.did";
 import c from "../func/constant";
 import { BtnCanister, BtnProposal } from "./type";
 
@@ -93,6 +93,18 @@ const arrToTable = function <T extends Object, F extends Function, B = BtnCanist
     });
     return table;
 };
+const installParamToTable = function (install_param : {
+    mode : InstallMode,
+    wasm_code_sha256 : [] | [Array<number>],
+    wasm_code : Array<number>,
+}) {
+    let tableRow = document.createElement("tr");
+    let mode = unionToStr(install_param.mode, ["install", "reinstall", "upgrade"]);
+    appendToNewNode("td", strToSpan(mode));
+    appendToNewNode("td", strToSpan(install_param.wasm_code_sha256.join()));
+    appendToNewNode("td", strToSpan(install_param.wasm_code.join()));
+    return tableRow;
+};
 export default {
     strToSpan,
     toList,
@@ -103,5 +115,6 @@ export default {
     canisterToTableRow,
     proposalToTableRow,
     lockToTableRow,
-    arrToTable
+    arrToTable,
+    installParamToTable
 };

@@ -8,6 +8,7 @@ import f from "../func/func";
 import c from "../func/constant";
 import { renderCanisterSubData } from "./loggedIn/canisterSubData";
 import { renderPublicProposalSubData } from "./loggedIn/publicProposalSubData";
+import { renderPublicResolutionSubData } from "./loggedIn/publicResolutionSubData";
 
 const content = () => html
 	`<div class="container">
@@ -37,15 +38,15 @@ const content = () => html
 
 		<button type="button" id="btnGetCanisters" class="primary">Get Canisters</button>
 		<div id="blkCanisters"></div>
-		<div id="blkCanistersSubData"></div>
+		<div id="blkCanisterSubData"></div>
 
 		<button type="button" id="btnGetPublicProposals" class="primary">Get Public Proposals</button>
 		<div id="blkPublicProposals"></div>
-		<div id="blkPublicProposalsSubData"></div>
+		<div id="blkPublicProposalSubData"></div>
 
 		<button type="button" id="btnGetPublicResolutions" class="primary">Get Public Resolutions</button>
 		<div id="blkPublicResolutions"></div>
-		<div id="blkPublicResolutionsSubData"></div>
+		<div id="blkPublicResolutionSubData"></div>
 
 		<button id="logout">log out</button>
 	</div>`;
@@ -117,6 +118,7 @@ export const renderLoggedIn = async (
 					md.toTableHeadRow(c.PROPOSAL_COLUMNS), response, md.proposalToTableRow, c.BTN_RESOLUTION, c.PUBLIC_PROPOSAL_TYPE_BRANCH
 				) : md.strToSpan("There is no public resolution.")
 			);
+			if (flag) renderPublicResolutionSubData(response);
 		};
 
 	(document.getElementById("logout") as HTMLButtonElement).onclick =

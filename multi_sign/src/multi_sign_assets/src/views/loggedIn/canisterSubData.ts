@@ -2,8 +2,13 @@ import { html, render } from "lit-html";
 import { CanisterOutput, _SERVICE } from "../../../../declarations/multi_sign/multi_sign.did";
 import c from "../../func/constant";
 import md from "../../func/modifyDom";
+import { renderCanisterProposalSubData } from "./canisterSubData/canisterProposalSubData";
+import { renderCanisterResolutionSubData } from "./canisterSubData/canisterResolutionSubData";
 
-const content = () => html`<div id="blkCanisterSubData"></div>`;
+const content = () => html
+    `<div id="canisterSubData"></div>
+    <div id="blkCanisterProposalSubData"></div>
+    <div id="blkCanisterResolutionSubData"></div>`;
 
 export const renderCanisterSubData = async (
     canisters : Array<CanisterOutput>
@@ -17,8 +22,8 @@ export const renderCanisterSubData = async (
             (document.getElementById(btn_canister_lock) as HTMLButtonElement)
                 .onclick = () => {
                     if ("lock" in canister.lock) {
-                        (document.getElementById("blkCanisterSubData") as HTMLDivElement).innerHTML = "";
-                        (document.getElementById("blkCanisterSubData") as HTMLDivElement).appendChild(
+                        (document.getElementById("canisterSubData") as HTMLDivElement).innerHTML = "";
+                        (document.getElementById("canisterSubData") as HTMLDivElement).appendChild(
                             md.arrToTable(
                                 md.toTableHeadRow(c.CANISTER_LOCK_COLUMNS), [canister.lock.lock], md.lockToTableRow, c.BTN_CANISTER, c.PERMISSION_BRANCH
                             )
@@ -30,24 +35,26 @@ export const renderCanisterSubData = async (
         if (document.getElementById(btn_canister_proposals) !== null)
             (document.getElementById(btn_canister_proposals) as HTMLButtonElement)
                 .onclick = () => {
-                    (document.getElementById("blkCanisterSubData") as HTMLDivElement).innerHTML = "";
-                    (document.getElementById("blkCanisterSubData") as HTMLDivElement).appendChild(
+                    (document.getElementById("canisterSubData") as HTMLDivElement).innerHTML = "";
+                    (document.getElementById("canisterSubData") as HTMLDivElement).appendChild(
                         md.arrToTable(
                             md.toTableHeadRow(c.PROPOSAL_COLUMNS), canister.proposals, md.proposalToTableRow, c.BTN_CANISTER_PROPOSAL, c.CANISTER_PROPOSAL_TYPE_BRANCH
                         )
                     );
+                    renderCanisterProposalSubData(canister.proposals);
                 };
 
         let btn_canister_resolutions = c.BTN_CANISTER.resolutions + index;
         if (document.getElementById(btn_canister_resolutions) !== null)
             (document.getElementById(btn_canister_resolutions) as HTMLButtonElement)
                 .onclick = () => {
-                    (document.getElementById("blkCanisterSubData") as HTMLDivElement).innerHTML = "";
-                    (document.getElementById("blkCanisterSubData") as HTMLDivElement).appendChild(
+                    (document.getElementById("canisterSubData") as HTMLDivElement).innerHTML = "";
+                    (document.getElementById("canisterSubData") as HTMLDivElement).appendChild(
                         md.arrToTable(
                             md.toTableHeadRow(c.PROPOSAL_COLUMNS), canister.resolutions, md.proposalToTableRow, c.BTN_CANISTER_RESOLUTION, c.CANISTER_PROPOSAL_TYPE_BRANCH
                         )
                     );
+                    renderCanisterResolutionSubData(canister.resolutions);
                 };
 
     });
