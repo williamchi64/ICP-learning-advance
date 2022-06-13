@@ -1,0 +1,153 @@
+type definite_canister_settings = 
+ record {
+   compute_allocation: nat;
+   controllers: vec principal;
+   freezing_threshold: nat;
+   memory_allocation: nat;
+ };
+type Result_3 = 
+ variant {
+   err: Error;
+   ok: CanisterStatus;
+ };
+type Result_2 = 
+ variant {
+   err: Error;
+   ok: CanisterOuput;
+ };
+type Result_1 = 
+ variant {
+   err: Error;
+   ok: record {msg: text;};
+ };
+type Result = 
+ variant {
+   err: Error;
+   ok: ProposalStatus;
+ };
+type PublicProposalType = 
+ variant {
+   create: record {cycles: opt nat;};
+   lock: record {n: nat;};
+   register: record {identity: principal;};
+   unlock: record {n: nat;};
+   unregister: record {identity: principal;};
+ };
+type ProposalType = 
+ variant {
+   canister_proposal: CanisterProposalType;
+   public_proposal: PublicProposalType;
+ };
+type ProposalStatus = 
+ variant {
+   fail;
+   idle;
+   pass;
+   voting;
+ };
+type ProposalOutput_1 = 
+ record {
+   agree_threshold: nat;
+   agree_voters: vec principal;
+   msg: opt text;
+   proposal_status: ProposalStatus;
+   proposal_type: CanisterProposalType;
+   total_voters: vec principal;
+   voter_threshold: nat;
+ };
+type ProposalOutput = 
+ record {
+   agree_threshold: nat;
+   agree_voters: vec principal;
+   msg: opt text;
+   proposal_status: ProposalStatus;
+   proposal_type: PublicProposalType;
+   total_voters: vec principal;
+   voter_threshold: nat;
+ };
+type Permission = 
+ variant {
+   allowed;
+   disallowed;
+ };
+type LockParamOuput = 
+ record {
+   delete: Permission;
+   install: Permission;
+   start: Permission;
+   stop: Permission;
+ };
+type InstallMode = 
+ variant {
+   install;
+   reinstall;
+   upgrade;
+ };
+type Error = 
+ variant {
+   async_call_error: record {msg: text;};
+   index_out_of_bound_error: record {msg: text;};
+   not_enough_cycle_exception: record {
+                                 cycle_limit: nat;
+                                 msg: text;
+                               };
+   proposal_exception: record {msg: text;};
+   register_exception: record {msg: text;};
+   resolution_exception: record {msg: text;};
+   unknown_error: record {msg: text;};
+ };
+type CanisterStatus = 
+ record {
+   cycles: nat;
+   freezing_threshold: nat;
+   memory_size: nat;
+   module_hash: opt vec nat8;
+   settings: definite_canister_settings;
+   status: variant {
+             running;
+             stopped;
+             stopping;
+           };
+ };
+type CanisterProposalType = 
+ variant {
+   delete;
+   install:
+    record {
+      mode: InstallMode;
+      wasm_code: blob;
+      wasm_code_sha256: opt vec nat8;
+    };
+   start;
+   stop;
+ };
+type CanisterOuput = 
+ record {
+   id: CanisterId;
+   lock: variant {
+           lock: LockParamOuput;
+           unlock;
+         };
+   proposals: vec ProposalOutput_1;
+   resolutions: vec ProposalOutput_1;
+ };
+type CanisterId = principal;
+service : {
+  canister_status: (nat) -> (Result_3);
+  delete_canister: (nat, opt text) -> (Result_1);
+  execute_resolution: (opt nat) -> (Result_1);
+  get_canister: (nat) -> (Result_2) query;
+  get_canisters: () -> (vec CanisterOuput) query;
+  get_controllers: () -> (vec principal) query;
+  get_cycles: () -> (nat) query;
+  get_old_canisters: () -> (vec CanisterId) query;
+  get_public_proposals: () -> (vec ProposalOutput) query;
+  get_public_resolutions: () -> (vec ProposalOutput) query;
+  install_code: (nat, blob, InstallMode, opt text) -> (Result_1);
+  post_proposal: (opt nat, ProposalType, opt text, opt nat, opt nat) ->
+   (Result_1);
+  start_canister: (nat, opt text) -> (Result_1);
+  stop_canister: (nat, opt text) -> (Result_1);
+  vote: (opt nat, bool, opt principal) -> (Result);
+  whoami: () -> (principal) query;
+}

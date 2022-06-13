@@ -1,6 +1,7 @@
 {
-  "include": ["src"],
+  "include": ["src/**/*.ts"],
   "compilerOptions": {
+    "outDir": "./",
     "noImplicitAny": false,
     "allowJs": true,
     "checkJs": false,
@@ -18,9 +19,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "paths": {
-      "dfx-generated/whoami": ["./.dfx/local/canisters/multi_sign"]
+      "dfx-generated/multi_sign": ["./.dfx/local/canisters/multi_sign"]
     }
   },
-
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "node_modules", "dist"]
 }
