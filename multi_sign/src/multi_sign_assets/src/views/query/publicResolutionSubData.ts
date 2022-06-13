@@ -1,5 +1,5 @@
 import { html, render } from "lit-html";
-import { CanisterOutput, ProposalOutput, _SERVICE } from "../../../../declarations/multi_sign/multi_sign.did";
+import { ProposalOutput, _SERVICE } from "../../../../declarations/multi_sign/multi_sign.did";
 import c from "../../func/constant";
 import md from "../../func/modifyDom";
 

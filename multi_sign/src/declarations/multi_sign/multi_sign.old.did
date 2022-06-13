@@ -13,7 +13,7 @@ type Result_3 =
 type Result_2 = 
  variant {
    err: Error;
-   ok: CanisterOutput;
+   ok: CanisterOuput;
  };
 type Result_1 = 
  variant {
@@ -70,7 +70,7 @@ type Permission =
    allowed;
    disallowed;
  };
-type LockParamOutput = 
+type LockParamOuput = 
  record {
    delete: Permission;
    install: Permission;
@@ -95,7 +95,6 @@ type Error =
    register_exception: record {msg: text;};
    resolution_exception: record {msg: text;};
    unknown_error: record {msg: text;};
-   vote_exception: record {msg: text;};
  };
 type CanisterStatus = 
  record {
@@ -122,11 +121,11 @@ type CanisterProposalType =
    start;
    stop;
  };
-type CanisterOutput = 
+type CanisterOuput = 
  record {
    id: CanisterId;
    lock: variant {
-           lock: LockParamOutput;
+           lock: LockParamOuput;
            unlock;
          };
    proposals: vec ProposalOutput_1;
@@ -138,7 +137,7 @@ service : {
   delete_canister: (nat, opt text) -> (Result_1);
   execute_resolution: (opt nat) -> (Result_1);
   get_canister: (nat) -> (Result_2) query;
-  get_canisters: () -> (vec CanisterOutput) query;
+  get_canisters: () -> (vec CanisterOuput) query;
   get_controllers: () -> (vec principal) query;
   get_cycles: () -> (nat) query;
   get_old_canisters: () -> (vec CanisterId) query;

@@ -6,9 +6,10 @@ import { CanisterOutput, _SERVICE } from "../../../declarations/multi_sign/multi
 import md from "../func/modifyDom";
 import f from "../func/func";
 import c from "../func/constant";
-import { renderCanisterSubData } from "./loggedIn/canisterSubData";
-import { renderPublicProposalSubData } from "./loggedIn/publicProposalSubData";
-import { renderPublicResolutionSubData } from "./loggedIn/publicResolutionSubData";
+import { renderCanisterSubData } from "./query/canisterSubData";
+import { renderPublicProposalSubData } from "./query/publicProposalSubData";
+import { renderPublicResolutionSubData } from "./query/publicResolutionSubData";
+import { init } from "..";
 
 const content = () => html
 	`<div class="container">
@@ -51,12 +52,12 @@ const content = () => html
 		<button id="logout">log out</button>
 	</div>`;
 
-export const renderLoggedIn = async (
+export const renderQuery = async (
 	actor: ActorSubclass<_SERVICE>,
 	authClient: AuthClient
 ) => {
 
-	render(content(), document.getElementById("pageContent") as HTMLElement);
+	render(content(), document.getElementById("pageContentQuery") as HTMLElement);
 
 	const response = await f.try_catch(actor.whoami);
 	console.log(response);
@@ -124,7 +125,14 @@ export const renderLoggedIn = async (
 	(document.getElementById("logout") as HTMLButtonElement).onclick =
 		async () => {
 			await authClient.logout();
-			renderIndex();
+			const pageContentQuery = document.getElementById("pageContentQuery") as HTMLElement;
+			const pageContentUpdate = document.getElementById("pageContentUpdate") as HTMLElement;
+			pageContentQuery.remove();
+			pageContentUpdate.remove();
+			const pageContent = document.createElement("main");
+			document.getElementsByTagName("body")[0].append(pageContent);
+			pageContent.id = "pageContent";
+			init();
 		};
 
 };
